@@ -72,7 +72,10 @@ depot 100, helipad 120. Placement (`TtwPlacement.check`) also wants the
 ground clear (open on the path grid) and on the map, an engineer of the side
 within 5 tiles, and the fuel in one depot.
 
-## Playing (`main.tscn` = `TtwSkirmish`)
+## Playing (`game/rts/title.tscn`, then `main.tscn` = `TtwSkirmish`)
+
+- Title (`TtwTitle`, the first scene): a skirmish on any map, the saved game,
+  the Mud Lab, quit. The game's menu and the Mud Lab's Esc come back to it.
 
 - Map (`TtwSkirmishMap`): 96×56 tiles, mirrored. Bases west (side 1) and east
   (side 2): a garage, two depots, two tanks, a wrecker and an engineer. A river

@@ -12,7 +12,7 @@ config_version=5
 
 config/name="Tiny Truck Wars"
 config/version="0.1.0"
-run/main_scene="res://main.tscn"
+run/main_scene="res://game/rts/title.tscn"
 config/use_custom_user_dir=true
 config/custom_user_dir_name="TinyTruckWars"
 config/features=PackedStringArray("4.7", "GL Compatibility")

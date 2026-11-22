@@ -40,7 +40,7 @@ garage to win.
 | F | Use the special at the cursor (spray, drop, smoke) |
 | WASD / arrows / screen edge | Pan |
 | Mouse wheel | Zoom |
-| Esc | Menu: save, load, new game on any map |
+| Esc | Menu: save, load, new game on any map, back to the title |
 | F5 / F9 | Quick save / quick load |
 
 ### Maps
@@ -56,12 +56,13 @@ You need Godot 4.7.2 (`godot` on your PATH, or set `GODOT`).
 
 ```sh
 godot --headless --path . --import          # once, after cloning
-./run-game.sh                               # 1920×1080 on the primary monitor
+./run-game.sh                               # the title screen, 1920×1080 on the primary monitor
 ./run-game.sh --fullscreen -- --map=dunes   # --map=river|snowfield|dunes, --watch, --load=<path>
 ```
 
-`--watch` lets the computer play both sides. The Mud Lab (`tools/mud_lab.tscn`)
-is a sandbox for the ground: drive, dig, pour water and tune the shaders.
+The title screen starts a skirmish on any map, loads the saved game, or opens
+the Mud Lab: a sandbox for the ground where you drive, dig, pour water and tune
+the shaders (Esc goes back). `--watch` lets the computer play both sides.
 
 ## Tests
 
@@ -77,5 +78,8 @@ How it is built is written up in `docs/`: the ground (`ground.md`), the RTS rule
 
 ## Licence
 
-The game's code is MIT licensed (`LICENSE`). Third-party software and art are
-credited, with their licences, in `CREDITS.md`.
+The game's code is MIT licensed (`LICENSE`). The art in `assets/` (the
+vehicle, helicopter and building sprites, trees, rubble and effect textures)
+is CC BY-NC 4.0 (`assets/LICENSE.md`): free to share and adapt for
+non-commercial use, with credit. Third-party software is credited in
+`CREDITS.md`.

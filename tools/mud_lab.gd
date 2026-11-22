@@ -161,6 +161,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			camera.zoom = Vector2.ONE * maxf(camera.zoom.x - 1, 1) if camera.zoom.x > 1 else Vector2.ONE * 0.5
 		_update_help()
 	elif event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_ESCAPE:
+			TtwTitle.back_to_title(self)
+			return
 		var mouse := get_global_mouse_position()
 		if event.keycode >= KEY_1 and event.keycode <= KEY_7:
 			brush = event.keycode - KEY_1
@@ -207,7 +210,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		_update_help()
 
 func _update_help() -> void:
-	_help.text = "Mud Lab   brush: %s  size %d px   zoom %s   LOD %s   overlay: %s\narrows drive  Q next vehicle  T Y U I K spawn  C V B crater  F fire  G smoke  H oil  N winter  P pour  R rain  1-7 brush  [ ] size  LMB/RMB paint  O overlay  Tab sliders  L LOD  M move  X winch  Shift+X tow  J path weights" % [
+	_help.text = "Mud Lab   brush: %s  size %d px   zoom %s   LOD %s   overlay: %s\narrows drive  Q next vehicle  T Y U I K spawn  C V B crater  F fire  G smoke  H oil  N winter  P pour  R rain  1-7 brush  [ ] size  LMB/RMB paint  O overlay  Tab sliders  L LOD  M move  X winch  Shift+X tow  J path weights  Esc main menu" % [
 		BRUSH_NAMES[brush], int(radius_px), str(camera.zoom.x), "on" if view.lod_enabled else "off", view.overlay_name()]
 
 func _update_status() -> void:

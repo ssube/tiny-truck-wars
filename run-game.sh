@@ -1,8 +1,8 @@
 #!/bin/bash
-# Runs the game (main.tscn, the skirmish) in a 1920x1080 window on the
+# Runs the game (its title screen) in a 1920x1080 window on the
 # primary monitor: its corner is found with xrandr; without xrandr (or a
 # primary) it opens on screen 0.
-#   ./run-game.sh                       the river map against the computer
+#   ./run-game.sh                       the title screen: a map, the Mud Lab or a saved game
 #   ./run-game.sh --fullscreen          fullscreen on the primary monitor
 #   ./run-game.sh -- --map=dunes        game arguments after -- (--map=river|snowfield|dunes,
 #                                       --watch, --load=<path>)

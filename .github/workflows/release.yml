@@ -43,7 +43,9 @@ jobs:
           test -s builds/linux/tiny-truck-wars.x86_64
           test -s builds/windows/tiny-truck-wars.exe
       - name: Smoke test the Linux build
-        run: timeout 120 ./builds/linux/tiny-truck-wars.x86_64 --headless --audio-driver Dummy --quit-after 600
+        run: |
+          timeout 60 ./builds/linux/tiny-truck-wars.x86_64 --headless --audio-driver Dummy --quit-after 120
+          timeout 120 ./builds/linux/tiny-truck-wars.x86_64 --headless --audio-driver Dummy --quit-after 600 -- --map=river
       - name: Package
         run: |
           set -euo pipefail
