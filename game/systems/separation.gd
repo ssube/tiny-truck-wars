@@ -2,10 +2,15 @@ class_name TtwSeparationSystem extends System
 ## Keeps ground vehicles out of each other. Each is a circle (the radius the
 ## obstacle push uses: half its gauge and a tread); every tick the vehicles
 ## are put in a grid of CELL_PX cells, and each overlapping pair is pushed
-## apart along the line between them, each by its share. A vehicle that
-## cannot move by itself (stuck, a wreck, out of fuel) holds its ground: the
-## other one goes round it. A wrecker and what it tows or winches are on one
-## rope and left be. Aircraft are over all of it.
+## apart along the line between them. Who gives way goes by weight
+## (TtwVehicle.Weight): a heavier vehicle shoves a lighter one aside, two
+## trucks or two tanks share the push, and a car pushes nothing (of two
+## cars, the faster, the one driving into the other, gives way). A vehicle
+## that cannot move by itself (stuck, a wreck, out of fuel) holds its
+## ground: the other one goes round it. Only a winch moves a wreck. A crashed
+## aircraft is a wreck on the ground like the rest; one flying is over all
+## of it. A wrecker and what its cable is on are left be (the winch keeps
+## them apart); a towed load is not, so the wrecker cannot back through it.
 ##
 ## Runs after the drive and the tow and before the obstacle push, so a
 ## vehicle is never shoved into a tree or a wall.
@@ -25,6 +30,10 @@ var _count: int = 0
 ## The world's version when the view was last looked at, and whether every
 ## vehicle in it had its body (if not, the rows are made again each tick).
 var _types: Array = [TtwVehicle, KitBody]
+var _downed_types: Array = [TtwFlight, TtwWrecked, KitBody]
+## Each row's TtwVehicle.Weight, and its drive (null for a crashed aircraft).
+var _weights: PackedByteArray = []
+var _drives: Array[TtwDrive] = []
 var _version: int = -1
 var _whole: bool = false
 ## This tick: where each row is (kept as they are pushed), every row's cell
@@ -84,6 +93,9 @@ func _gather() -> void:
 	var version := session.world.cache_version
 	if version != _version or not _whole:
 		var view := session.view(_types)
+		var downed := session.view(_downed_types)
+		if not downed.is_empty():
+			view = view + downed
 		if not _whole or view != _entities:
 			_rows(view)
 		_version = version
@@ -111,6 +123,8 @@ func _rows(view: Array) -> void:
 	_entities.clear()
 	_bodies.clear()
 	_radii.clear()
+	_weights.clear()
+	_drives.clear()
 	_whole = true
 	for entity: Entity in view:
 		var body := (entity.get_component(KitBody) as KitBody).node
@@ -119,7 +133,14 @@ func _rows(view: Array) -> void:
 			continue
 		_entities.append(entity)
 		_bodies.append(body)
-		_radii.append(radius_of(entity.get_component(TtwVehicle)))
+		var v: TtwVehicle = entity.get_component(TtwVehicle)
+		if v != null:
+			_radii.append(radius_of(v))
+			_weights.append(v.weight)
+		else:
+			_radii.append((entity.get_component(TtwFlight) as TtwFlight).ground_radius_px)
+			_weights.append(TtwVehicle.Weight.TANK)
+		_drives.append(entity.get_component(TtwDrive))
 	_count = _bodies.size()
 	_at.resize(_count)
 	_cells.resize(_count)
@@ -140,6 +161,9 @@ func _holds(k: int) -> bool:
 ## Parts rows `i` and `j`, which overlap: `gap` from i to j, `d2` its length
 ## squared, `reach` their two radii.
 func _part(i: int, j: int, reach: float, gap: Vector2, d2: float) -> void:
+	# A crashed aircraft still coming down is over the rest.
+	if (_drives[i] == null and TtwCombat.flying(_entities[i])) or (_drives[j] == null and TtwCombat.flying(_entities[j])):
+		return
 	var fixed_a := _holds(i)
 	var fixed_b := _holds(j)
 	if fixed_a and fixed_b or _roped(_entities[i], _entities[j]) or _roped(_entities[j], _entities[i]):
@@ -150,20 +174,34 @@ func _part(i: int, j: int, reach: float, gap: Vector2, d2: float) -> void:
 	# Exactly on top of each other: part them along x, the lower index west.
 	var away := gap / d if d > 0.0001 else Vector2.RIGHT
 	var overlap := reach - d
-	if fixed_a:
-		_at[j] += away * overlap
-		_bodies[j].position = _at[j]
-	elif fixed_b:
-		_at[i] -= away * overlap
+	# The share of the overlap row i gives way by; row j gives the rest.
+	var give := 0.0 if fixed_a else (1.0 if fixed_b else _gives(i, j))
+	if give > 0.0:
+		_at[i] -= away * overlap * give
 		_bodies[i].position = _at[i]
-	else:
-		_at[i] -= away * overlap * 0.5
-		_bodies[i].position = _at[i]
-		_at[j] += away * overlap * 0.5
+	if give < 1.0:
+		_at[j] += away * overlap * (1.0 - give)
 		_bodies[j].position = _at[j]
 
+## The share of an overlap row `i` gives way by against row `j`, both free
+## to move: none against a lighter one, all against a heavier one, half
+## against its own class; of two cars, the faster gives way.
+func _gives(i: int, j: int) -> float:
+	var wi := _weights[i]
+	var wj := _weights[j]
+	if wi != wj:
+		return 0.0 if wi > wj else 1.0
+	if wi != TtwVehicle.Weight.CAR:
+		return 0.5
+	var si := absf(_drives[i].speed) if _drives[i] != null else 0.0
+	var sj := absf(_drives[j].speed) if _drives[j] != null else 0.0
+	if si == sj:
+		return 0.5
+	return 1.0 if si > sj else 0.0
+
+## Whether `wrecker`'s cable is on `load` (the winch keeps the two apart).
 func _roped(wrecker: Entity, load: Entity) -> bool:
-	return wrecker.has_component(TtwWinch) and (session.linked(wrecker, TtwTowing) == load or session.linked(wrecker, TtwWinching) == load)
+	return wrecker.has_component(TtwWinch) and session.linked(wrecker, TtwWinching) == load
 
 func _touch(a: Entity, b: Entity) -> void:
 	if _touching.has(a):

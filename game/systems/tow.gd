@@ -26,7 +26,7 @@ func process(entities: Array[Entity], _components: Array, _delta: float) -> void
 			session.unlink(wrecker, TtwTowing)
 			wd.load = 0.0
 			continue
-		var rope := (wrecker.get_component(TtwWinch) as TtwWinch).tow_tiles * TtwTerrain.tile_px()
+		var rope := TtwWinchSystem.rope_px(wrecker, target)
 		var gap := b.position - a.position
 		var td: TtwDrive = target.get_component(TtwDrive)
 		if gap.length() > rope:

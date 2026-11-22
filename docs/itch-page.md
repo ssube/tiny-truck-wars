@@ -57,7 +57,8 @@ same simulation and can be slower than the downloads on a busy map.
 ### Controls
 
 - Left click or drag to select, right click to move or attack.
-- With a wrecker selected, right click a stuck vehicle to winch it out.
+- Ctrl and right click to fire at a spot on the ground, a tree or a house.
+- With a wrecker selected, right click a stuck vehicle to winch it out, or a tree to winch itself out of the mud.
 - R: engineers lay road. F: water tankers spray, bucket helicopters drop,
   hippies throw smoke at the cursor.
 - WASD or arrows to pan, mouse wheel to zoom, Esc for the menu, F5 and F9 to
@@ -65,10 +66,10 @@ same simulation and can be slower than the downloads on a busy map.
 
 ### Units
 
-Garages build the ground vehicles; helipads build the helicopters.
+Garages build the ground vehicles; helipads build the helicopters. Tanks shove trucks and cars out of the way, trucks shove cars, and cars can't push anything.
 
 - **Tank**: the main fighter. Fires shells on an arc that lead moving targets; ridges and tall buildings can stop them. Can shoot at helicopters too, hitting about one shot in three.
-- **Wrecker**: a truck with a winch and tow hitch. Pulls stuck vehicles out of the mud and tows wrecks home, where the garage breaks them up for fuel.
+- **Wrecker**: a truck with a winch and tow hitch. Pulls stuck vehicles out of the mud, winches itself out on a tree, and tows wrecks home, where the garage breaks them up for fuel. Only a winch can move a wreck.
 - **Tanker**: a truck that fills up at your depots and refuels anything of yours parked near it, including landed helicopters.
 - **Engineer**: the only unit that can build. Garages, depots and helipads can only be put down within a few tiles of an engineer, and it can lay gravel road over the mud as it drives (R).
 - **Water tanker**: pumps from rivers and ponds, then sprays a spot (F) to turn a field into mud on purpose or put out a fire.

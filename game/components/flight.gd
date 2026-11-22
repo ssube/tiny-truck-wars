@@ -4,6 +4,8 @@ class_name TtwFlight extends Component
 
 ## Top air speed (tiles per second) and how fast it gets there.
 @export var max_speed_tiles: float = 7.0
+## The circle a crashed one fills on the ground (px): vehicles go round it.
+@export var ground_radius_px: float = 10.0
 @export var accel_tiles: float = 5.0
 ## Height it flies at, and how fast it climbs or sinks (px, px per second).
 @export var cruise_px: float = 26.0

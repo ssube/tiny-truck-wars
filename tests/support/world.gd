@@ -21,6 +21,15 @@ class TestWorld extends Node2D:
 		_count += 1
 		return session.bind_body(body, "structure:%d" % _count)
 
+	## A world object of `kind` (TtwGame.PROP_SCENES: a tree, a log, a house).
+	func prop(kind: StringName, at: Vector2, angle: float = 0.0) -> Entity:
+		var body: Node2D = (load(TtwGame.PROP_SCENES[kind]) as PackedScene).instantiate()
+		body.position = at
+		body.rotation = angle
+		units.add_child(body)
+		_count += 1
+		return session.bind_body(body, "prop:%d" % _count)
+
 ## A world on `terrain`, added under `parent`. Free it with queue_free().
 static func make(parent: Node, terrain: TtwTerrain, with_water: bool = false, with_fire: bool = false) -> TestWorld:
 	var world := TestWorld.new()

@@ -22,10 +22,12 @@ rule here has a test (`tests/unit/test_combat.gd`, `test_helicopters.gd`,
 
 ## Shooting (`TtwGunSystem`, `TtwBallisticsSystem`, `game/combat/`)
 
-- **Targets.** An ordered target (`TtwAttacking`, right click on an enemy)
-  comes first: out of range the unit closes in (a `TtwMoveOrder` with
+- **Targets.** An ordered target (`TtwAttacking`, right click on an enemy;
+  Ctrl+right click on anything with health, a tree or a house too) or an
+  ordered spot on the ground (`TtwFireAt`, Ctrl+right click where nothing
+  is) comes first: out of range the unit closes in (a `TtwMoveOrder` with
   `chase`), in range it stops and fires, and the order ends when the target
-  is gone. Otherwise every `SCAN_TICKS` (staggered per unit) a gun takes the
+  is gone (a spot is fired on until another order). Otherwise every `SCAN_TICKS` (staggered per unit) a gun takes the
   nearest enemy in range, units before structures, aircraft only if it can
   reach them, nothing inside smoke past `SMOKE_SIGHT_TILES`.
 - **Ballistic shells.** A shot is an entity of its own with a `TtwShell` and

@@ -136,3 +136,44 @@ func test_a_selected_garage_destroyed_leaves_the_selection_and_the_hud_quietly()
 	assert_bool(c.selected.has(tank)).is_true()
 	assert_int(c.selected.size()).is_equal(1)
 	assert_object(c.selected_structure()).is_null()
+
+func _right_click(at: Vector2, ctrl: bool) -> void:
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_RIGHT
+	click.pressed = true
+	click.ctrl_pressed = ctrl
+	game.commander.order_with(click, at)
+
+func test_ctrl_right_click_fires_at_a_tree_or_at_the_ground() -> void:
+	await _start()
+	var c := game.commander
+	var tank: Entity = _own(&"tank")[0]
+	var truck: Entity = _own(&"wrecker")[0]
+	c.select_rect(Rect2(Vector2.ZERO, game.terrain.size_px()))
+	var tree: Entity = game.session.view([TtwTree, KitBody])[0]
+	_right_click(game.session.body_of(tree).position + Vector2(2, 0), true)
+	assert_object(game.session.linked(tank, TtwAttacking)).is_same(tree)
+	# Units without guns take no part.
+	assert_object(game.session.linked(truck, TtwAttacking)).is_null()
+	assert_bool(truck.has_component(TtwMoveOrder)).is_false()
+	var ground := Vector2(30, 28) * TtwTerrain.tile_px()
+	_right_click(ground, true)
+	assert_object(game.session.linked(tank, TtwAttacking)).is_null()
+	assert_vector((tank.get_component(TtwFireAt) as TtwFireAt).at).is_equal(ground)
+	# A plain right click is a move, and ends the order to fire.
+	_right_click(ground, false)
+	assert_bool(tank.has_component(TtwFireAt)).is_false()
+	assert_bool(tank.has_component(TtwMoveOrder)).is_true()
+
+func test_a_selected_wrecker_right_clicked_onto_a_tree_winches_itself_to_it() -> void:
+	await _start()
+	var c := game.commander
+	var truck: Entity = _own(&"wrecker")[0]
+	var tree: Entity = game.session.view([TtwTree, KitBody])[0]
+	var post := game.session.body_of(tree).position
+	game.session.body_of(truck).position = post + Vector2(-48, 0)
+	c.select_at(game.session.body_of(truck).position)
+	assert_array(c.selected).is_equal([truck])
+	_right_click(post + Vector2(1, 0), false)
+	assert_object(game.session.linked(truck, TtwWinching)).is_same(tree)
+	assert_bool(truck.has_component(TtwMoveOrder)).is_false()

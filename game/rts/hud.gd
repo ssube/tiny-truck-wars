@@ -127,7 +127,7 @@ func _describe() -> String:
 		var f: TtwFuel = unit.get_component(TtwFuel)
 		var state := "stuck" if unit.has_component(TtwStuck) else ("flooded" if unit.has_component(TtwFlooded) else ("stalled" if unit.has_component(TtwStalled) else ""))
 		if unit.has_component(TtwWinch):
-			state += " (winch: right-click a stuck or broken vehicle, X lets go)"
+			state += " (winch: right-click a stuck or broken vehicle, or a tree to haul itself to; X lets go)"
 		state += _kit_line(unit)
 		return "%s   health %d / %d   fuel %d / %d   %s" % [String(TtwUnits.kind_of(unit)).capitalize(), int(c.current()), int(c.max_health), int(f.level()), int(f.capacity), state]
 	if units.size() > 1:

@@ -27,7 +27,7 @@ func _draw() -> void:
 			var to := b.position - Vector2(0, HITCH_PX * TILT_K)
 			var slack := 0.0
 			if relation == TtwTowing:
-				slack = maxf(0.0, winch.tow_tiles * TtwTerrain.tile_px() - from.distance_to(to))
+				slack = maxf(0.0, TtwWinchSystem.rope_px(wrecker, load) - from.distance_to(to))
 			var points := PackedVector2Array()
 			for k in 9:
 				var s := k / 8.0

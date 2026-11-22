@@ -137,3 +137,41 @@ func test_an_attack_order_closes_in_stops_in_range_and_fires_until_the_target_is
 	assert_float(gap).is_greater(gun.range_px() - 2.0 * 16.0)
 	await _ticks(1)
 	assert_object(world.session.linked(tank, TtwAttacking)).is_null()
+
+func test_a_tank_told_to_fire_at_a_spot_closes_in_and_shells_the_ground_there() -> void:
+	_world()
+	var tank := world.spawn(&"tank", Vector2(100, 250))
+	var gun := _gun(tank)
+	var spot := Vector2(100 + gun.range_px() + 60.0, 250)
+	await _ticks(1) # the path grid
+	TtwGunSystem.target_ground(world.session, tank, spot)
+	assert_bool(tank.has_component(TtwFireAt)).is_true()
+	assert_bool(tank.has_component(TtwMoveOrder)).is_true()
+	var aimed: Array[Vector2] = []
+	_guns().fired.connect(func(_shooter, shell): aimed.append((shell.get_component(TtwShell) as TtwShell).to))
+	var burst := UI.observe(_ballistics().burst)
+	# 60 px to close at the tank's speed, a second to get going, then the
+	# shell's flight.
+	var speed := Kit2D.tiles((tank.get_component(TtwDrive) as TtwDrive).max_speed_tiles)
+	var flight := TtwCombat.flight_ticks(gun, spot - Vector2(gun.range_px(), 0), spot)
+	await _ticks(ceili(60.0 / speed * 60.0) + 60 + flight + 2)
+	assert_array(aimed).is_equal([spot])
+	assert_bool(burst.received).is_true()
+	assert_float((burst.value[1] as Vector2).distance_to(spot)).is_less(1.0)
+	# It stopped in range, and keeps the order until told otherwise.
+	assert_float(world.session.body_of(tank).position.distance_to(spot)).is_less_equal(gun.range_px())
+	assert_bool(tank.has_component(TtwMoveOrder)).is_false()
+	assert_bool(tank.has_component(TtwFireAt)).is_true()
+	TtwGunSystem.cease(world.session, tank)
+	assert_bool(tank.has_component(TtwFireAt)).is_false()
+
+func test_a_tank_told_to_shoot_a_tree_knocks_it_down() -> void:
+	_world()
+	var tank := world.spawn(&"tank", Vector2(100, 250))
+	var tree := world.prop(&"tree_oak", Vector2(200, 250))
+	TtwGunSystem.attack(world.session, tank, tree)
+	var gun := _gun(tank)
+	# One shot's flight; a tree's health is under one shell's damage.
+	await _ticks(TtwCombat.flight_ticks(gun, Vector2(100, 250), Vector2(200, 250)) + 2)
+	assert_bool((tree.get_component(TtwHealth) as TtwHealth).destroyed).is_true()
+	assert_object(world.session.linked(tank, TtwAttacking)).is_null()

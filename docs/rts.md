@@ -83,7 +83,10 @@ within 5 tiles, and the fuel in one depot.
 - Commander (`TtwCommander`): left click or drag selects own units (or one
   structure), right click moves (in a block) or, with a wrecker selected and
   a stuck or broken vehicle under the cursor, winches it (tows it if it cannot
-  drive and is close); on an enemy, units with guns attack it. X lets go,
+  drive and is close), or on a tree, log or house, winches itself to it (out
+  of mud, or along); on an enemy, units with guns attack it. Ctrl+right
+  click fires: the guns shoot what is under the cursor (any side, a tree or
+  a house) or the ground there until told otherwise. X lets go,
   S stops, R has engineers lay road, F uses the special at the cursor (spray,
   drop, smoke), WASD / arrows / screen edge pan,
   wheel zooms. Build buttons place structures with a ghost (green or red, the

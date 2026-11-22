@@ -3,9 +3,14 @@ class_name TtwVehicle extends Component
 ## kind on its prefab (copied per instance).
 
 enum Running { TREADS, WHEELS }
+## What it can shove out of its way (TtwSeparationSystem): a heavier class
+## pushes a lighter one, trucks and tanks share a push with their own class,
+## and a car pushes nothing.
+enum Weight { CAR, TRUCK, TANK }
 
 @export var kind: StringName = &""
 @export var running: Running = Running.WHEELS
+@export var weight: Weight = Weight.TRUCK
 ## How far (px) one press of a contact sinks into fully soft ground.
 @export var sink_px: float = 1.2
 ## Treads: length of each tread, distance between the two tread centres.

@@ -12,6 +12,7 @@ script = ExtResource("2")
 kind = &"tank"
 running = 0
 sink_px = 1.6
+weight = 2
 tread_length_px = 40.0
 gauge_px = 22.0
 contact_width_px = 7.0

@@ -1,7 +1,8 @@
 class_name TtwGunSystem extends System
 ## Units with guns pick a target and fire when loaded. An ordered target
-## (TtwAttacking) comes first: out of range the unit closes in, in range it
-## stops and shoots. Otherwise every SCAN_TICKS ticks (staggered per unit) it
+## (TtwAttacking: anything with health, a tree or a house too) or an ordered
+## spot on the ground (TtwFireAt) comes first: out of range the unit closes
+## in, in range it stops and shoots. Otherwise every SCAN_TICKS ticks (staggered per unit) it
 ## looks for the nearest enemy in range, units before structures, never into
 ## smoke, aircraft only if its gun can reach them. A shot becomes an entity
 ## with a TtwShell (TtwBallisticsSystem flies it).
@@ -23,6 +24,7 @@ func query() -> QueryBuilder:
 
 func process(entities: Array[Entity], _components: Array, _delta: float) -> void:
 	var shots: Array = []
+	var spots: Array = []
 	for entity in entities:
 		var gun: TtwGun = entity.get_component(TtwGun)
 		if entity.has_component(TtwWrecked):
@@ -30,12 +32,15 @@ func process(entities: Array[Entity], _components: Array, _delta: float) -> void
 		var body := (entity.get_component(KitBody) as KitBody).node
 		if not is_instance_valid(body):
 			continue
+		# An ordered spot: closed in on while reloading too, nothing else shot.
+		var spot: TtwFireAt = entity.get_component(TtwFireAt)
+		if spot != null:
+			if _close_in(entity, gun, body.position, spot.at) and session.tick >= gun.ready_tick and _can_fire(entity):
+				spots.append([entity, spot.at])
+			continue
 		# The ordered target is followed (or let go) while reloading too.
 		var target := _ordered(entity, gun, body.position)
-		if session.tick < gun.ready_tick:
-			continue
-		# Aircraft fire only in the air.
-		if entity.has_component(TtwFlight) and not TtwCombat.flying(entity):
+		if session.tick < gun.ready_tick or not _can_fire(entity):
 			continue
 		if target == null and (session.tick + entity.get_instance_id()) % SCAN_TICKS == 0:
 			target = pick(entity, gun, body.position)
@@ -43,10 +48,18 @@ func process(entities: Array[Entity], _components: Array, _delta: float) -> void
 			shots.append([entity, target])
 	for shot in shots:
 		fire(shot[0], shot[1])
+	for spot in spots:
+		fire_at(spot[0], spot[1])
+
+## Aircraft fire only in the air.
+static func _can_fire(entity: Entity) -> bool:
+	return not entity.has_component(TtwFlight) or TtwCombat.flying(entity)
 
 ## Orders `entity` to attack `target`: it closes in and fires until the
 ## target is gone or another order replaces this one.
 static func attack(session: KitSession, entity: Entity, target: Entity) -> void:
+	if entity.has_component(TtwFireAt):
+		entity.remove_component(TtwFireAt)
 	session.link(entity, TtwAttacking, target)
 	var gun: TtwGun = entity.get_component(TtwGun)
 	var a := session.body_of(entity)
@@ -54,6 +67,42 @@ static func attack(session: KitSession, entity: Entity, target: Entity) -> void:
 	if gun != null and a != null and b != null and a.position.distance_to(b.position) > gun.range_px():
 		TtwPilotSystem.order(entity, b.position)
 		(entity.get_component(TtwMoveOrder) as TtwMoveOrder).chase = true
+
+## Orders `entity` to shell the ground at `at` (TtwFireAt): it closes in
+## and fires there until another order replaces this one.
+static func target_ground(session: KitSession, entity: Entity, at: Vector2) -> void:
+	session.unlink(entity, TtwAttacking)
+	var spot: TtwFireAt = entity.get_component(TtwFireAt)
+	if spot == null:
+		spot = TtwFireAt.new()
+		spot.at = at
+		entity.add_component(spot)
+	else:
+		spot.at = at
+	var gun: TtwGun = entity.get_component(TtwGun)
+	var a := session.body_of(entity)
+	if gun != null and a != null and a.position.distance_to(at) > gun.range_px():
+		TtwPilotSystem.order(entity, at)
+		(entity.get_component(TtwMoveOrder) as TtwMoveOrder).chase = true
+
+## Takes back an order to attack something or somewhere.
+static func cease(session: KitSession, entity: Entity) -> void:
+	session.unlink(entity, TtwAttacking)
+	if entity.has_component(TtwFireAt):
+		entity.remove_component(TtwFireAt)
+
+## Whether `there` is in range of `entity` at `at`; if not, it keeps after
+## it (a route planned again if `there` has moved), and stops on reaching it.
+func _close_in(entity: Entity, gun: TtwGun, at: Vector2, there: Vector2) -> bool:
+	var order: TtwMoveOrder = entity.get_component(TtwMoveOrder)
+	if at.distance_to(there) <= gun.range_px():
+		if order != null and order.chase:
+			TtwPilotSystem.stop(entity)
+		return true
+	if order == null or (order.chase and order.target.distance_to(there) > TtwTerrain.tile_px()):
+		TtwPilotSystem.order(entity, there)
+		(entity.get_component(TtwMoveOrder) as TtwMoveOrder).chase = true
+	return false
 
 ## The ordered target if it is in range (closing in on it if not), or null.
 func _ordered(entity: Entity, gun: TtwGun, at: Vector2) -> Entity:
@@ -63,17 +112,8 @@ func _ordered(entity: Entity, gun: TtwGun, at: Vector2) -> Entity:
 	if not TtwCombat.alive(session, target) or (TtwCombat.flying(target) and not gun.hits_air):
 		session.unlink(entity, TtwAttacking)
 		return null
-	var there := session.body_of(target).position
-	var order: TtwMoveOrder = entity.get_component(TtwMoveOrder)
-	if at.distance_to(there) <= gun.range_px():
-		if order != null and order.chase:
-			TtwPilotSystem.stop(entity)
-		return target
 	# Out of range: keep after it (the route is planned again as it moves).
-	if order == null or (order.chase and order.target.distance_to(there) > TtwTerrain.tile_px()):
-		TtwPilotSystem.order(entity, there)
-		(entity.get_component(TtwMoveOrder) as TtwMoveOrder).chase = true
-	return null
+	return target if _close_in(entity, gun, at, session.body_of(target).position) else null
 
 ## The nearest enemy `entity` can shoot from `at`: units before structures.
 func pick(entity: Entity, gun: TtwGun, at: Vector2) -> Entity:
@@ -115,10 +155,21 @@ static func _in_smoke(clouds: Array, at: Vector2) -> bool:
 ## the target will be (unless leading is off), reloaded after.
 func fire(entity: Entity, target: Entity) -> Entity:
 	var gun: TtwGun = entity.get_component(TtwGun)
-	var terrain := TtwGround.of(session)
 	var from := session.body_of(entity).position
 	var there := session.body_of(target).position
 	var aim := TtwCombat.aim_point(gun, from, there, TtwCombat.velocity_of(target), gun.lead and leading)
+	return _launch(entity, aim, target)
+
+## Fires `entity`'s gun at the ground at `at` now, reloaded after.
+func fire_at(entity: Entity, at: Vector2) -> Entity:
+	return _launch(entity, at, null)
+
+## A shell entity from `entity` on its way to `aim` (at `target`, an aircraft
+## or not, or at the ground when null).
+func _launch(entity: Entity, aim: Vector2, target: Entity) -> Entity:
+	var gun: TtwGun = entity.get_component(TtwGun)
+	var terrain := TtwGround.of(session)
+	var from := session.body_of(entity).position
 	var s := TtwShell.new()
 	s.ammo = gun.ammo
 	s.damage = gun.damage
@@ -127,7 +178,7 @@ func fire(entity: Entity, target: Entity) -> Entity:
 	var own_flight: TtwFlight = entity.get_component(TtwFlight)
 	s.from = from
 	s.from_h = TtwCombat.ground_height(terrain, from) + gun.muzzle_px + (own_flight.altitude if own_flight != null else 0.0)
-	if TtwCombat.flying(target):
+	if target != null and TtwCombat.flying(target):
 		s.air = true
 		gun.air_shots += 1
 		s.hit = floori(gun.air_shots * gun.air_accuracy) > floori((gun.air_shots - 1) * gun.air_accuracy)

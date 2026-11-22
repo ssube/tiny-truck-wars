@@ -5,6 +5,7 @@ extends GdUnitTestSuite
 
 const Fixture := preload("res://tests/support/world.gd")
 const Simulation := preload("res://tests/support/simulation.gd")
+const UI := preload("res://tests/support/ui.gd")
 
 var world: Fixture.TestWorld
 
@@ -117,3 +118,68 @@ func test_a_towed_wreck_follows_at_rope_length_and_slows_the_wrecker() -> void:
 	assert_float(a.distance_to(b)).is_equal_approx(rope, 0.01)
 	assert_float(b.x).is_less(a.x)
 	assert_float(a.x - 60.0).is_less(world.session.body_of(free).position.x - 60.0)
+
+func _pace(wrecker: Entity) -> float:
+	return (wrecker.get_component(TtwWinch) as TtwWinch).pull_tiles * TtwTerrain.tile_px()
+
+## Where a wrecker stops hauling itself to a tree at `post`: up against it.
+func _against(wrecker: Entity, tree: Entity) -> float:
+	return TtwSeparationSystem.radius_of(wrecker.get_component(TtwVehicle)) + 1.0 + (tree.get_component(TtwObstacle) as TtwObstacle).radius
+
+func test_a_wrecker_winches_itself_along_to_a_tree_and_lets_go_against_it() -> void:
+	world = Fixture.make(self, Fixture.flat(Vector2i(24, 8), TtwMaterials.PAVEMENT))
+	var wrecker := world.spawn(&"wrecker", Vector2(60, 64), PI * 0.5)
+	var tree := world.prop(&"tree_oak", Vector2(124, 64))
+	var released := UI.observe((world.session.system(&"winch") as TtwWinchSystem).released)
+	assert_str(TtwWinchSystem.anchor(world.session, wrecker, tree)).is_empty()
+	# On firm ground at the winch's full pace, from 64 px off to up against it.
+	var travel := 64.0 - _against(wrecker, tree)
+	await _ticks(ceili(travel / _pace(wrecker) * 60.0) + 2)
+	assert_bool(released.received).is_true()
+	var at := world.session.body_of(wrecker).position
+	assert_float(at.distance_to(Vector2(124, 64))).is_equal_approx(_against(wrecker, tree), 0.5)
+	assert_float(at.y).is_equal_approx(64.0, 0.01)
+	# It faces the cable, and the tree stands.
+	assert_float((wrecker.get_component(TtwDrive) as TtwDrive).heading).is_equal_approx(0.0, 0.001)
+	assert_bool((tree.get_component(TtwHealth) as TtwHealth).destroyed).is_false()
+	assert_object(world.session.linked(wrecker, TtwWinching)).is_null()
+
+func test_a_stuck_wrecker_winches_itself_out_of_a_bog_to_a_tree() -> void:
+	var t := _bog(4, 8)
+	world = Fixture.make(self, t)
+	var wrecker := world.spawn(&"wrecker", Vector2(104, 64))
+	var d: TtwDrive = wrecker.get_component(TtwDrive)
+	d.traction = 2.0
+	d.throttle = 1.0
+	await _ticks(1)
+	assert_bool(wrecker.has_component(TtwStuck)).is_true()
+	var tree := world.prop(&"tree_pine", Vector2(176, 64))
+	assert_str(TtwWinchSystem.anchor(world.session, wrecker, tree)).is_empty()
+	# Slowed by the mud it sits in for the whole way, at most.
+	var winch: TtwWinch = wrecker.get_component(TtwWinch)
+	var effort := maxf(1.0, TtwDriveSystem.resistance_at(t, Vector2(104, 64), 0.0) / winch.force)
+	var travel := 72.0 - _against(wrecker, tree)
+	await _ticks(ceili(travel / (_pace(wrecker) / effort) * 60.0) + 2)
+	assert_object(world.session.linked(wrecker, TtwWinching)).is_null()
+	var at := world.session.body_of(wrecker).position
+	assert_float(at.x).is_greater_equal(144.0)
+	# On pavement it drives away under its own power.
+	d.throttle = -1.0
+	await _ticks(10)
+	assert_bool(wrecker.has_component(TtwStuck)).is_false()
+	assert_float(world.session.body_of(wrecker).position.x).is_less(at.x)
+
+func test_the_cable_round_a_tree_needs_reach_and_comes_off_when_it_falls() -> void:
+	world = Fixture.make(self, Fixture.flat(Vector2i(24, 8), TtwMaterials.PAVEMENT))
+	var wrecker := world.spawn(&"wrecker", Vector2(40, 64))
+	var reach := (wrecker.get_component(TtwWinch) as TtwWinch).range_tiles * TtwTerrain.tile_px()
+	var far := world.prop(&"tree_oak", Vector2(40 + reach + 1.0, 64))
+	assert_str(TtwWinchSystem.anchor(world.session, wrecker, far)).is_equal("Out of reach.")
+	var near := world.prop(&"tree_oak", Vector2(40 + reach - 1.0, 64))
+	assert_str(TtwWinchSystem.anchor(world.session, wrecker, near)).is_empty()
+	var released := UI.observe((world.session.system(&"winch") as TtwWinchSystem).released)
+	TtwDamage.hurt(world.session, near, 1000.0, Vector2(40, 64))
+	await _ticks(1)
+	assert_bool(released.received).is_true()
+	assert_object(world.session.linked(wrecker, TtwWinching)).is_null()
+	assert_str(TtwWinchSystem.anchor(world.session, wrecker, near)).is_equal("Nothing to hook.")

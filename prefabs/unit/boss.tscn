@@ -12,6 +12,7 @@ script = ExtResource("2")
 kind = &"boss"
 running = 1
 sink_px = 0.9
+weight = 0
 tread_length_px = 0.0
 gauge_px = 15.0
 contact_width_px = 3.0

@@ -6,6 +6,11 @@ class_name TtwCommander extends Node2D
 ##   RMB             orders: move; on an enemy, attack it (units with guns);
 ##                   on a stuck or broken vehicle, a selected wrecker winches
 ##                   it (tows it if it cannot drive and is close)
+##                   on a tree, log or house, a selected wrecker winches itself
+##                   to it (out of mud, or along)
+##   Ctrl+RMB        fire here: the selected guns shoot what is under the
+##                   cursor (a tree, a house, anything with health, any side)
+##                   or, if nothing is, the ground there
 ##   X               the selected wreckers let go
 ##   S               stop
 ##   R               the selected engineers start or stop laying road
@@ -96,10 +101,7 @@ func _unhandled_input(event: InputEvent) -> void:
 					select_at(at, event.shift_pressed)
 				_dragging = false
 		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
-			if not placing.is_empty():
-				placing = &""
-			else:
-				order_at(at)
+			order_with(event, at)
 	elif event is InputEventMouseMotion and _pressed:
 		if at.distance_to(_drag_from) > DRAG_PX / game.camera.zoom.x:
 			_dragging = true
@@ -109,6 +111,15 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_S: stop()
 			KEY_R: toggle_paving()
 			KEY_F: special_at(at)
+
+## A right click at `at`: cancels placing, fires (with Ctrl), or orders.
+func order_with(click: InputEventMouseButton, at: Vector2) -> void:
+	if not placing.is_empty():
+		placing = &""
+	elif click.ctrl_pressed:
+		fire_here(at)
+	else:
+		order_at(at)
 
 #region Selection
 
@@ -120,6 +131,31 @@ func select_rect(rect: Rect2, add: bool = false) -> void:
 		if TtwTeam.of(entity) == team and not entity.has_component(TtwWrecked) and rect.has_point(session().body_of(entity).position) and not selected.has(entity):
 			selected.append(entity)
 	selection_changed.emit()
+
+## A world object under `at` (a tree, a log, a house: something with health
+## that stands in the way), or null.
+func pick_object(at: Vector2) -> Entity:
+	var best: Entity = null
+	var best_d := INF
+	for entity in session().view([TtwHealth, TtwObstacle, KitBody]):
+		if entity.has_component(TtwStructure):
+			continue
+		var h: TtwHealth = entity.get_component(TtwHealth)
+		if h.destroyed:
+			continue
+		var body := session().body_of(entity)
+		var o: TtwObstacle = entity.get_component(TtwObstacle)
+		var center := body.position + o.offset.rotated(o.angle)
+		var local := (at - center).rotated(-o.angle)
+		var d := 0.0
+		if o.shape == TtwObstacle.Shape.CIRCLE:
+			d = maxf(0.0, local.length() - o.radius)
+		else:
+			d = (local - local.clamp(-o.half_extents, o.half_extents)).length()
+		if d <= PICK_PX * 0.5 and d < best_d:
+			best = entity
+			best_d = d
+	return best
 
 ## The own unit or structure nearest `at` within reach.
 func select_at(at: Vector2, add: bool = false) -> void:
@@ -192,9 +228,16 @@ func order_at(at: Vector2) -> void:
 			if unit.has_component(TtwWinch):
 				_hook(unit, target)
 				return
+	# A tree, log or house with wreckers selected: they winch themselves to it.
+	var wreckers := units.filter(func(u): return u.has_component(TtwWinch))
+	if target == null and not wreckers.is_empty():
+		var post := pick_object(at)
+		if post != null:
+			_anchor(wreckers, post)
+			return
 	var columns := ceili(sqrt(units.size()))
 	for k in units.size():
-		session().unlink(units[k], TtwAttacking)
+		TtwGunSystem.cease(session(), units[k])
 		var offset := Vector2(k % columns - (columns - 1) * 0.5, k / columns - (ceili(float(units.size()) / columns) - 1) * 0.5) * SPACING
 		TtwPilotSystem.order(units[k], at + offset)
 
@@ -215,6 +258,33 @@ func _hook(wrecker: Entity, target: Entity) -> void:
 	else:
 		TtwPilotSystem.stop(wrecker)
 
+## Ctrl+right click: the selected units with guns shoot what is under `at`
+## (any unit or structure, a tree, a log or a house) or the ground there.
+func fire_here(at: Vector2) -> void:
+	var gunners := selected_units().filter(func(u): return u.has_component(TtwGun))
+	if gunners.is_empty():
+		_reject("Nothing selected can fire.")
+		return
+	var target := pick(at)
+	if target == null or not TtwCombat.alive(session(), target):
+		target = pick_object(at)
+	for unit in gunners:
+		if target != null and target != unit:
+			TtwGunSystem.attack(session(), unit, target)
+		else:
+			TtwGunSystem.target_ground(session(), unit, at)
+
+func _anchor(wreckers: Array, post: Entity) -> void:
+	var reason := ""
+	for wrecker in wreckers:
+		var why := TtwWinchSystem.anchor(session(), wrecker, post)
+		if why.is_empty():
+			TtwPilotSystem.stop(wrecker)
+		elif reason.is_empty():
+			reason = why
+	if not reason.is_empty():
+		_reject(reason)
+
 func release() -> void:
 	for unit in selected_units():
 		if unit.has_component(TtwWinch):
@@ -222,7 +292,7 @@ func release() -> void:
 
 func stop() -> void:
 	for unit in selected_units():
-		session().unlink(unit, TtwAttacking)
+		TtwGunSystem.cease(session(), unit)
 		TtwPilotSystem.stop(unit)
 
 ## Engineers lay road, or stop (all of the selected follow the first).
@@ -297,6 +367,12 @@ func _draw() -> void:
 			draw_rect(Rect2(body.position + o.offset - o.half_extents - Vector2(2, 2), o.half_extents * 2.0 + Vector2(4, 4)), Color(1, 1, 1, 0.9), false, 1.0)
 		else:
 			draw_arc(body.position, 11.0, 0.0, TAU, 20, Color(1, 1, 1, 0.9), 1.0)
+			var spot: TtwFireAt = entity.get_component(TtwFireAt)
+			if spot != null:
+				var mark := Color(1, 0.35, 0.25, 0.9)
+				draw_arc(spot.at, 5.0, 0.0, TAU, 16, mark, 1.0)
+				draw_line(spot.at - Vector2(8, 0), spot.at + Vector2(8, 0), mark, 1.0)
+				draw_line(spot.at - Vector2(0, 8), spot.at + Vector2(0, 8), mark, 1.0)
 			var c: TtwCondition = entity.get_component(TtwCondition)
 			if c != null:
 				draw_rect(Rect2(body.position + Vector2(-8, 12), Vector2(16, 2)), Color(0, 0, 0, 0.6))
