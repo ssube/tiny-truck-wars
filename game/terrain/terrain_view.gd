@@ -270,10 +270,12 @@ func refresh(delta: float = 0.0) -> void:
 		flow_texture.update(terrain.flow_image())
 		if depth_texture != null:
 			depth_texture.update(water_sim.depth_image())
+		terrain.water_dirty = false
+	# The slick keeps its own flag: it moves on every water step with oil
+	# afloat, and changes when oil is spilt or burns.
 	if water_sim != null and water_sim.slick_dirty:
 		slick_texture.update(water_sim.slick_image())
 		water_sim.slick_dirty = false
-		terrain.water_dirty = false
 	_place_buffer()
 	var view := view_rect()
 	var center := view.get_center()
