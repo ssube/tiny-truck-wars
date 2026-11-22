@@ -84,6 +84,8 @@ func test_a_loaded_game_is_the_game_that_was_saved() -> void:
 		for script in parts_a:
 			assert_bool(parts_a[script] == parts_b.get(script)).override_failure_message("%s %s: %s != %s" % [alias, script.get_file(), parts_a[script], parts_b.get(script)]).is_true()
 		assert_bool(a.links == b.links).override_failure_message("%s links %s != %s" % [alias, a.links, b.links]).is_true()
+	# A wrecker is drawn as one again (its art comes from its kind).
+	assert_str(game.session.body_of(game.session.resolve(wrecker_alias)).get("art")).is_equal("wrecker")
 	# The winch is still on, and one opponent, not two.
 	assert_object(game.session.linked(game.session.resolve(wrecker_alias), TtwWinching)).is_same(game.session.resolve(tank_alias))
 	assert_int(game.session.view([TtwAi]).size()).is_equal(1)

@@ -225,6 +225,8 @@ static func _make(game: TtwGame, record: Dictionary) -> Entity:
 		body.queue_free()
 		return null
 	_reconcile(entity, record.components, [KitBody])
+	if entity.has_component(TtwUnit):
+		TtwUnits.dress(body, TtwUnits.kind_of(entity))
 	var h: TtwHealth = entity.get_component(TtwHealth)
 	if h != null and h.current() < h.max_health and body.has_method("hurt"):
 		body.call("hurt", h.current() / h.max_health)

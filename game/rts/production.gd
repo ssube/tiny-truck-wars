@@ -5,7 +5,7 @@ class_name TtwProduction extends RefCounted
 
 const UNITS := {
 	&"tank": {"fuel": 120.0, "seconds": 12.0},
-	&"wrecker": {"fuel": 60.0, "seconds": 8.0, "unit": &"truck", "kit": &"wrecker"},
+	&"wrecker": {"fuel": 60.0, "seconds": 8.0, "unit": &"truck", "kit": &"wrecker", "art": "wrecker"},
 	&"tanker": {"fuel": 50.0, "seconds": 8.0, "unit": &"truck", "kit": &"tanker"},
 	&"engineer": {"fuel": 70.0, "seconds": 9.0, "unit": &"truck", "kit": &"engineer"},
 	&"water_tanker": {"fuel": 50.0, "seconds": 8.0, "unit": &"truck", "kit": &"water"},
@@ -28,6 +28,11 @@ static func unit_seconds(kind: StringName) -> float:
 ## The chassis a kind is built on (itself if it is one).
 static func chassis(kind: StringName) -> StringName:
 	return UNITS[kind].get("unit", kind) if UNITS.has(kind) else kind
+
+## The sprites a kind is drawn with (assets/units/<art>/), or "" for its
+## chassis's own.
+static func art(kind: StringName) -> String:
+	return UNITS[kind].get("art", "") if UNITS.has(kind) else ""
 
 ## The kit a kind is fitted with (&"" for none).
 static func kit(kind: StringName) -> StringName:

@@ -5,7 +5,7 @@
 All art in `assets/` is © 2026 Sean Sube, licensed CC BY-NC 4.0
 (`licenses/Art-CC-BY-NC-4.0.md`).
 
-- The unit and structure sprites (trucks, tank, helicopter, hippy van, boss
+- The unit and structure sprites (trucks, wrecker, tank, helicopter, hippy van, boss
   limousine, field ambulance, garage, depot, helipad) were generated with
   PixelLab (https://pixellab.ai) from written prompts, then chosen and
   imported by hand.

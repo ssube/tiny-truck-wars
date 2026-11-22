@@ -10,8 +10,18 @@ const REFLECTION_SHADER := preload("res://shaders/reflection.gdshader")
 ## How far up the screen a px of height is drawn (the terrain shader's tilt).
 const TILT_K := 0.6
 
-## assets/units/<art>/<direction>.png
-@export var art: String = "truck"
+## assets/units/<art>/<direction>.png. A kit can have art of its own
+## (TtwProduction.art): set after the body is ready, the sprite changes.
+@export var art: String = "truck":
+	set(value):
+		if value == art:
+			return
+		art = value
+		if is_node_ready():
+			_load_art()
+			var facing := _facing
+			_facing = -1
+			_face(maxi(facing, 0))
 @export var vehicle: TtwVehicle
 @export var drive: TtwDrive
 @export var fuel: TtwFuel
@@ -42,13 +52,19 @@ func kit_components() -> Array[Component]:
 func kit_bound(_session: KitSession, bound: Entity) -> void:
 	entity = bound
 
-func _ready() -> void:
+func _load_art() -> void:
+	_textures.clear()
+	_bottoms.clear()
+	_heights.clear()
 	for direction in DIRECTIONS:
 		var texture: Texture2D = load("res://assets/units/%s/%s.png" % [art, direction])
 		_textures.append(texture)
 		var used := texture.get_image().get_used_rect()
 		_bottoms.append(float(used.end.y - 1))
 		_heights.append(float(used.size.y))
+
+func _ready() -> void:
+	_load_art()
 	sprite = Sprite2D.new()
 	sprite.name = "Sprite"
 	var shader_material := ShaderMaterial.new()

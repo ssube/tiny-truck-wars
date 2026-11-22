@@ -25,6 +25,7 @@ static func spawn(session: KitSession, parent: Node, kind: StringName, at: Vecto
 		return null
 	var body: Node2D = (load(SCENES[chassis]) as PackedScene).instantiate()
 	body.position = at
+	dress(body, kind)
 	parent.add_child(body)
 	var side := TtwTeam.new()
 	side.team = team
@@ -43,6 +44,14 @@ static func spawn(session: KitSession, parent: Node, kind: StringName, at: Vecto
 	if flight != null:
 		flight.heading = heading
 	return entity
+
+## Gives a unit's body the art of its kind, if the kind has its own
+## (TtwProduction.art): before it is in the tree, or after (a loaded save,
+## whose kind is known only once its components are back).
+static func dress(body: Node, kind: StringName) -> void:
+	var art := TtwProduction.art(kind)
+	if not art.is_empty() and "art" in body:
+		body.set("art", art)
 
 ## The kind a unit was built as (TtwUnit), or its chassis.
 static func kind_of(entity: Entity) -> StringName:

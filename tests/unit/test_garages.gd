@@ -40,6 +40,22 @@ func test_a_garage_builds_a_unit_in_its_time_from_its_depots_fuel() -> void:
 	var unit: Entity = made[0][0]
 	assert_int(TtwTeam.of(unit)).is_equal(1)
 	assert_str(String((unit.get_component(TtwVehicle) as TtwVehicle).kind)).is_equal("truck")
+	# On the truck's chassis, drawn as a wrecker.
+	assert_str(world.session.body_of(unit).get("art")).is_equal("wrecker")
+
+## A kit with art of its own is drawn with it, showing the sprite the body
+## loaded (each facing's texture); one without keeps its chassis's.
+func test_a_kit_with_its_own_art_is_drawn_with_it() -> void:
+	_world()
+	var wrecker := world.spawn(&"wrecker", Vector2(200, 200))
+	var tanker := world.spawn(&"tanker", Vector2(300, 200))
+	var body := world.session.body_of(wrecker) as TtwVehicle2D
+	assert_str(body.art).is_equal("wrecker")
+	assert_str(body.sprite.texture.resource_path).is_equal("res://assets/units/wrecker/east.png")
+	assert_str((world.session.body_of(tanker) as TtwVehicle2D).art).is_equal("truck")
+	# Changed after it is drawn (a loaded save), the sprite follows.
+	body.art = "truck"
+	assert_str(body.sprite.texture.resource_path).is_equal("res://assets/units/truck/east.png")
 
 func test_a_garage_says_why_it_waits() -> void:
 	_world()
