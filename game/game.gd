@@ -159,16 +159,14 @@ func spawn_structure(kind: StringName, position: Vector2, team: int, facing: Str
 	return entity
 
 ## Builds a structure of `kind` for `team` at `position` if the rules allow
-## (TtwPlacement), paying its fuel from the side's nearest depot that holds
-## enough. Null, with session.last_error saying why, if not.
+## (TtwPlacement), paying its fuel from the side's depots (all of them
+## together; the nearest first). Null, with session.last_error saying why, if not.
 func place_structure(kind: StringName, position: Vector2, team: int) -> Entity:
 	var reason := TtwPlacement.check(session, kind, position, team, footprint_of(kind))
 	if not reason.is_empty():
 		session.last_error = reason
 		return null
-	var payer := TtwPlacement.nearest_depot(session, position, team, INF, TtwProduction.STRUCTURES[kind])
-	var d: TtwDepot = payer.get_component(TtwDepot)
-	d.stock = d.level() - TtwProduction.STRUCTURES[kind]
+	TtwPlacement.draw_fuel(session, team, TtwProduction.STRUCTURES[kind], position)
 	var entity := spawn_structure(kind, position, team)
 	# A new depot starts empty: fuel is not made by building tanks for it.
 	if entity != null and entity.has_component(TtwDepot):

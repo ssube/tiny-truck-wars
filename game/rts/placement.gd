@@ -24,6 +24,32 @@ static func nearest_depot(session: KitSession, at: Vector2, team: int, reach_px:
 			best_d = d
 	return best
 
+## The fuel all of `team`'s depots hold (not those about to explode): what
+## building draws on, wherever the depots are.
+static func side_fuel(session: KitSession, team: int) -> float:
+	var total := 0.0
+	for entity in session.view([TtwDepot, TtwTeam]):
+		if TtwTeam.of(entity) == team and not entity.has_component(TtwDetonating):
+			total += (entity.get_component(TtwDepot) as TtwDepot).level()
+	return total
+
+## Takes `amount` of fuel from `team`'s depots, the ones nearest `at` first.
+## False, taking nothing, if together they hold less.
+static func draw_fuel(session: KitSession, team: int, amount: float, at: Vector2) -> bool:
+	if side_fuel(session, team) < amount:
+		return false
+	var depots := session.view([TtwDepot, TtwTeam, KitBody]).filter(func(e): return TtwTeam.of(e) == team and not e.has_component(TtwDetonating))
+	depots.sort_custom(func(a, b): return session.body_of(a).position.distance_squared_to(at) < session.body_of(b).position.distance_squared_to(at))
+	var left := amount
+	for entity in depots:
+		var d: TtwDepot = entity.get_component(TtwDepot)
+		var take := minf(d.level(), left)
+		d.stock = d.level() - take
+		left -= take
+		if left <= 0.0:
+			break
+	return true
+
 ## Why `kind` cannot be placed at `at` for `team` ("" if it can). `half` is
 ## the footprint's half size; `paid`: whether it costs fuel; `built`: whether
 ## an engineer of the side must be near to build it.
@@ -53,7 +79,7 @@ static func check(session: KitSession, kind: StringName, at: Vector2, team: int,
 			return "A helipad needs a fuel depot within %d tiles." % int(reach)
 	if built and engineer_near(session, at, team) == null:
 		return "An engineer must be within %d tiles." % int(engineer_reach())
-	if paid and nearest_depot(session, at, team, INF, TtwProduction.STRUCTURES[kind]) == null:
+	if paid and side_fuel(session, team) < TtwProduction.STRUCTURES[kind]:
 		return "Not enough fuel: it costs %d." % int(TtwProduction.STRUCTURES[kind])
 	return ""
 

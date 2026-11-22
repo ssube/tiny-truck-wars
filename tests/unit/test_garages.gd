@@ -1,6 +1,6 @@
 extends GdUnitTestSuite
-## Garages build from their depot's fuel in the time each unit takes, say why
-## they wait, repair their side (drying flooded engines) and break up wrecks
+## Garages build from their side's fuel (every depot together, nearest
+## first) in the time each unit takes, say why they wait, repair their side (drying flooded engines) and break up wrecks
 ## for fuel. Helipads need a depot near. A side without garages has lost.
 
 const Fixture := preload("res://tests/support/world.gd")
@@ -43,16 +43,15 @@ func test_a_garage_builds_a_unit_in_its_time_from_its_depots_fuel() -> void:
 
 func test_a_garage_says_why_it_waits() -> void:
 	_world()
-	var lone := world.structure(&"garage", Vector2(120, 120))
-	TtwGarageSystem.enqueue(lone, &"tank")
 	var garage := world.structure(&"garage", Vector2(500, 300))
+	TtwGarageSystem.enqueue(garage, &"tank")
+	await _ticks(1)
+	assert_str((garage.get_component(TtwBuildQueue) as TtwBuildQueue).status).is_equal("Waiting for fuel (0 of 120).")
 	var depot := world.structure(&"depot", Vector2(620, 300))
 	var d: TtwDepot = depot.get_component(TtwDepot)
 	d.refill = 0.0
 	d.stock = 10.0
-	TtwGarageSystem.enqueue(garage, &"tank")
 	await _ticks(1)
-	assert_str((lone.get_component(TtwBuildQueue) as TtwBuildQueue).status).is_equal("No fuel depot within 12 tiles.")
 	assert_str((garage.get_component(TtwBuildQueue) as TtwBuildQueue).status).is_equal("Waiting for fuel (10 of 120).")
 	assert_float(d.level()).is_equal(10.0)
 	d.stock = 200.0
@@ -60,23 +59,25 @@ func test_a_garage_says_why_it_waits() -> void:
 	assert_str((garage.get_component(TtwBuildQueue) as TtwBuildQueue).status).is_empty()
 	assert_float(d.level()).is_equal(80.0)
 
-func test_a_garage_draws_on_another_depot_in_reach_when_its_own_is_short() -> void:
+func test_a_garage_builds_from_all_its_sides_depots_nearest_first_however_far() -> void:
 	_world()
 	var garage := world.structure(&"garage", Vector2(200, 200))
-	var near := world.structure(&"depot", Vector2(300, 200))
 	var reach := TtwGarageSystem.SUPPLY_TILES * 16.0
-	var further := world.structure(&"depot", Vector2(200, 200 + reach))
-	var beyond := world.structure(&"depot", Vector2(200 - reach - 1.0, 200))
-	for depot in [near, further, beyond]:
+	var near := world.structure(&"depot", Vector2(300, 200))
+	var far := world.structure(&"depot", Vector2(200 + reach * 2.0, 400))
+	var enemy := world.structure(&"depot", Vector2(260, 260), 2)
+	for depot in [near, far, enemy]:
 		(depot.get_component(TtwDepot) as TtwDepot).refill = 0.0
-	(near.get_component(TtwDepot) as TtwDepot).stock = 10.0
-	(further.get_component(TtwDepot) as TtwDepot).stock = 200.0
-	(beyond.get_component(TtwDepot) as TtwDepot).stock = 500.0
+	(near.get_component(TtwDepot) as TtwDepot).stock = 50.0
+	(far.get_component(TtwDepot) as TtwDepot).stock = 500.0
+	(enemy.get_component(TtwDepot) as TtwDepot).stock = 500.0
 	TtwGarageSystem.enqueue(garage, &"tank")
 	await _ticks(1)
-	assert_float((further.get_component(TtwDepot) as TtwDepot).level()).is_equal(200.0 - TtwProduction.unit_fuel(&"tank"))
-	assert_float((beyond.get_component(TtwDepot) as TtwDepot).level()).is_equal(500.0)
-	assert_object(world.session.linked(garage, TtwSuppliedBy)).is_same(further)
+	# 120: the near one's 50 first, the rest from the far one; never the enemy's.
+	assert_float((near.get_component(TtwDepot) as TtwDepot).level()).is_equal(0.0)
+	assert_float((far.get_component(TtwDepot) as TtwDepot).level()).is_equal(500.0 - 70.0)
+	assert_float((enemy.get_component(TtwDepot) as TtwDepot).level()).is_equal(500.0)
+	assert_str((garage.get_component(TtwBuildQueue) as TtwBuildQueue).status).is_empty()
 
 func test_a_garage_repairs_its_side_and_dries_a_flooded_engine() -> void:
 	_world()
@@ -128,6 +129,7 @@ func test_placement_wants_clear_ground_and_the_fuel() -> void:
 	_world()
 	await _ticks(1)
 	var depot := world.structure(&"depot", Vector2(120, 120))
+	(depot.get_component(TtwDepot) as TtwDepot).refill = 0.0
 	(depot.get_component(TtwDepot) as TtwDepot).stock = 50.0
 	await _ticks(1)
 	assert_str(TtwPlacement.check(world.session, &"garage", Vector2(120, 120), 1, Vector2(22, 14))).is_equal("The ground there is not clear.")
@@ -138,7 +140,12 @@ func test_placement_wants_clear_ground_and_the_fuel() -> void:
 	assert_str(TtwPlacement.check(world.session, &"garage", Vector2(400, 300), 1, Vector2(22, 14))).is_equal("An engineer must be within 5 tiles.")
 	world.session.body_of(engineer).position = Vector2(400, 300 + reach)
 	assert_str(TtwPlacement.check(world.session, &"garage", Vector2(400, 300), 1, Vector2(22, 14))).is_equal("Not enough fuel: it costs 200.")
-	(depot.get_component(TtwDepot) as TtwDepot).stock = 200.0
+	# All the side's depots together pay: 50 here and 150 in another.
+	var other := world.structure(&"depot", Vector2(600, 400))
+	(other.get_component(TtwDepot) as TtwDepot).refill = 0.0
+	(other.get_component(TtwDepot) as TtwDepot).stock = 149.0
+	assert_str(TtwPlacement.check(world.session, &"garage", Vector2(400, 300), 1, Vector2(22, 14))).is_equal("Not enough fuel: it costs 200.")
+	(other.get_component(TtwDepot) as TtwDepot).stock = 150.0
 	assert_str(TtwPlacement.check(world.session, &"garage", Vector2(400, 300), 1, Vector2(22, 14))).is_empty()
 
 func test_nothing_may_be_built_in_front_of_a_garages_door() -> void:

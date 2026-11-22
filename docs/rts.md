@@ -63,7 +63,7 @@ obstacle with health and a side (`TtwTeam`; 0 neutral).
 | Thing | Rule |
 |---|---|
 | Fuel depot | Holds fuel and refills. Each other depot of its side within `cluster_tiles` (Area2D overlaps, counted when they begin and end) adds 25% to the rate, capped at twice it. Refuels its side's units within 3 tiles. A neutral depot falls to a side whose units hold it alone for 5 s. Destroyed, it goes up `CHAIN_TICKS` later: a depot crater, burning fuel, and damage to everything in reach, both growing with the fuel inside; a depot the blast destroys follows a fuse later. |
-| Garage | Builds a queue of units (`TtwBuildQueue`: what it builds is on the prefab); each takes its fuel from the supplying depot (the side's nearest within 12 tiles, linked) and then its time, faster with a boss near. Says why it waits. Repairs its side's vehicles within 3 tiles for fuel; a flooded engine runs again at half health. Breaks up wrecks towed in for 30% of their fuel cost. |
+| Garage | Builds a queue of units (`TtwBuildQueue`: what it builds is on the prefab); each takes its fuel from the side's depots (all of them together, wherever they are; the nearest first) and then its time, faster with a boss near. Says why it waits. Repairs its side's vehicles within 3 tiles for fuel from its supplying depot (the side's nearest within 12 tiles, linked); a flooded engine runs again at half health. Breaks up wrecks towed in for 30% of their fuel cost. |
 | Helipad | Placed only with a depot of its side within 8 tiles (refused with the reason); linked to it. Builds helicopters (they start on the pad). Repairs and refuels its side's aircraft landed on it. |
 | Win | A side with no garage left loses (`TtwMatch`, `TtwMatchSystem`). |
 

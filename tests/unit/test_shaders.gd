@@ -4,16 +4,19 @@ extends GdUnitTestSuite
 ## and many laptop GPUs give). A shader over it does not compile there; this
 ## machine's GPU allows more, so only this count catches it.
 ##
-## Godot does not hand out the GLSL it builds, so the count is read from the
-## sources: every sampler uniform (arrays counted by their length, global and
-## instance uniforms too), plus the textures Godot itself binds for a 2D
-## shader: the sprite's own texture, and for a lit one its normal and
-## specular maps and the light atlas (counted whether drawn lit or not).
+## A quick check from the sources: every sampler uniform (arrays counted by
+## their length, global and instance uniforms too), plus the textures
+## Godot's own 2D shader code names, as ANGLE (Chrome, Edge, most Windows
+## browsers) counts them, used or not. The numbers are measured on the GLSL
+## the driver gets (ci/shader-units.sh, tools/shader_units.py, which checks
+## every compiled program in CI): 4 of Godot's in an unshaded 2D shader
+## (color_texture, normal_texture, specular_texture, sdf_texture), 2 more
+## (the light and shadow atlases) when it is lit.
 
 const LIMIT := 16
 ## Godot's own textures in a canvas_item fragment shader.
-const CANVAS_OWN_UNSHADED := 1
-const CANVAS_OWN_LIT := 4
+const CANVAS_OWN_UNSHADED := 4
+const CANVAS_OWN_LIT := 6
 
 static func _shader_files(dir: String, out: PackedStringArray) -> void:
 	for name in DirAccess.get_files_at(dir):
@@ -75,5 +78,5 @@ uniform sampler2D e[3];
 uniform float not_a_texture;
 """
 	assert_int(samplers_in(code)).is_equal(7)
-	assert_int(units_for(code)).is_equal(8)
-	assert_int(units_for(code.replace("render_mode unshaded;", ""))).is_equal(11)
+	assert_int(units_for(code)).is_equal(11)
+	assert_int(units_for(code.replace("render_mode unshaded;", ""))).is_equal(13)

@@ -88,7 +88,9 @@ var _layers_this_frame: int = 0
 class Chunk extends Node2D:
 	var coord: Vector2i
 	var material_ref: ShaderMaterial
-	var textures: Array[ImageTexture] = []
+	## Its layers, in two textures of layers (CELL_SMOOTH, CELL_MARKS).
+	var smooth: Texture2DArray
+	var marks: Texture2DArray
 	var tier: int = Tier.FULL
 	var from_tier: int = Tier.FULL
 	var fade: float = 1.0
@@ -352,23 +354,50 @@ func _upload_all() -> void:
 	for chunk in _chunks:
 		_upload(chunk)
 
-const LAYER_NAMES: Array[StringName] = [&"deform_tex", &"loose_tex", &"wet_tex", &"track_tex", &"angle_tex", &"wear_tex", &"scorch_tex", &"oil_tex", &"snow_gone_tex"]
+## Where each TtwTerrain.Layer goes: [in the smooth texture (cell_layers),
+## else the texel-for-texel one (cell_marks); its layer there]. The order
+## is the terrain shader's.
+const CELL_PLACES := [
+	[true, 0], # DEFORM
+	[true, 1], # LOOSE
+	[true, 2], # WET
+	[false, 0], # TRACK
+	[false, 1], # TRACK_ANGLE
+	[false, 2], # WEAR
+	[true, 3], # SCORCH
+	[true, 4], # OIL
+	[true, 5], # SNOW_GONE
+]
 
 ## Takes the chunk's changed layers to its textures (every layer the first time).
 func _upload(chunk: Chunk) -> void:
-	var first := chunk.textures.is_empty()
-	var changed := TtwTerrain.ALL_LAYERS if first else terrain.chunk_dirty_layers(chunk.coord)
-	for layer in TtwTerrain.LAYER_COUNT:
-		if (changed & (1 << layer)) == 0:
-			continue
-		_layers_this_frame += 1
-		var image := terrain.chunk_image(layer, chunk.coord)
-		if first:
-			var texture := ImageTexture.create_from_image(image)
-			chunk.textures.append(texture)
-			chunk.material_ref.set_shader_parameter(LAYER_NAMES[layer], texture)
-		else:
-			chunk.textures[layer].update(image)
+	if chunk.smooth == null:
+		var smooth: Array[Image] = []
+		var marks: Array[Image] = []
+		smooth.resize(6)
+		marks.resize(3)
+		for layer in TtwTerrain.LAYER_COUNT:
+			var place: Array = CELL_PLACES[layer]
+			var image := terrain.chunk_image(layer, chunk.coord)
+			if place[0]:
+				smooth[place[1]] = image
+			else:
+				marks[place[1]] = image
+		chunk.smooth = Texture2DArray.new()
+		chunk.smooth.create_from_images(smooth)
+		chunk.marks = Texture2DArray.new()
+		chunk.marks.create_from_images(marks)
+		chunk.material_ref.set_shader_parameter(&"cell_layers", chunk.smooth)
+		chunk.material_ref.set_shader_parameter(&"cell_marks", chunk.marks)
+		_layers_this_frame += TtwTerrain.LAYER_COUNT
+	else:
+		var changed := terrain.chunk_dirty_layers(chunk.coord)
+		for layer in TtwTerrain.LAYER_COUNT:
+			if (changed & (1 << layer)) == 0:
+				continue
+			_layers_this_frame += 1
+			var place: Array = CELL_PLACES[layer]
+			(chunk.smooth if place[0] else chunk.marks).update_layer(terrain.chunk_image(layer, chunk.coord), place[1])
 	terrain.clean_chunk(chunk.coord)
 	_uploads_this_frame += 1
 

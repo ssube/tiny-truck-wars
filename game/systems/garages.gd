@@ -1,10 +1,11 @@
 class_name TtwGarageSystem extends System
 ## Garages and helipads: build the queue's first unit (TtwBuildQueue) once
-## its fuel is taken from the supplying depot (or, when that one is short,
-## another of the side's within reach that has it) (linked once, to the nearest depot of the side within
-## SUPPLY_TILES), repair their side's ground vehicles nearby (a flooded engine
-## is dried out once half its health is back), and break wrecks towed in up
-## for fuel. Helipads serve their side's aircraft the same way.
+## its fuel is taken from the side's depots (all of them together, wherever
+## they are; the nearest first), repair their side's ground vehicles nearby
+## from the depot that supplies them (linked once, to the nearest depot of
+## the side within SUPPLY_TILES; a flooded engine is dried out once half its
+## health is back), and break wrecks towed in up for fuel into it. Helipads
+## serve their side's aircraft the same way.
 
 signal produced(garage: Entity, unit: Entity)
 
@@ -63,21 +64,11 @@ func _build(entity: Entity, g: TtwBuildQueue, delta: float) -> void:
 		return
 	var kind := g.queue[0]
 	if not g.paid:
-		var depot := supply(entity)
-		if depot == null:
-			g.status = "No fuel depot within %d tiles." % int(_reach(entity))
-			return
-		var d: TtwDepot = depot.get_component(TtwDepot)
 		var cost := TtwProduction.unit_fuel(kind)
-		if d.level() < cost:
-			# Another depot of the side in reach that has it, if any.
-			var other := TtwPlacement.nearest_depot(session, session.body_of(entity).position, TtwTeam.of(entity), _reach(entity) * TtwTerrain.tile_px(), cost)
-			if other == null:
-				g.status = "Waiting for fuel (%d of %d)." % [int(d.level()), int(cost)]
-				return
-			session.link(entity, TtwSuppliedBy, other)
-			d = other.get_component(TtwDepot)
-		d.stock = d.level() - cost
+		var side := TtwTeam.of(entity)
+		if not TtwPlacement.draw_fuel(session, side, cost, session.body_of(entity).position):
+			g.status = "Waiting for fuel (%d of %d)." % [int(TtwPlacement.side_fuel(session, side)), int(cost)]
+			return
 		g.paid = true
 		g.progress = 0.0
 	g.status = ""

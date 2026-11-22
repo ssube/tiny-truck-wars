@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.3
+
+- Fixed: the game still would not start in some browsers (Chrome, Edge) and
+  on some graphics cards, which count every texture a shader names. The
+  ground now names 12, and every shader the game compiles is checked
+  against 16 on each change.
+- Building draws on your whole fuel supply: units, helicopters and
+  structures are paid from all your depots together, wherever they are.
+  Repairs and refuelling still use a depot near the garage or helipad.
+
 ## 0.2.2
 
 - Fixed: the game would not start on graphics cards and browsers that give a

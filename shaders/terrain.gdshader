@@ -14,18 +14,15 @@ shader_type canvas_item;
 render_mode unshaded;
 
 // Chunk cell layers: CHUNK_TEXELS square, APRON cells around the chunk.
-uniform sampler2D deform_tex : filter_linear, repeat_disable;
-uniform sampler2D loose_tex : filter_linear, repeat_disable;
-uniform sampler2D wet_tex : filter_linear, repeat_disable;
-uniform sampler2D track_tex : filter_nearest, repeat_disable;
-uniform sampler2D angle_tex : filter_nearest, repeat_disable;
-uniform sampler2D wear_tex : filter_nearest, repeat_disable;
-uniform sampler2D scorch_tex : filter_linear, repeat_disable;
+// Two textures of layers each (TtwTerrainView.CELL_*), so the shader stays
+// within 16 texture units however a driver counts them: the smooth ones
+// 0 deform, 1 loose, 2 wet, 3 scorch, 4 oil, 5 snow taken; and those read
+// texel for texel 0 track, 1 track angle, 2 wear.
+uniform sampler2DArray cell_layers : filter_linear, repeat_disable;
+uniform sampler2DArray cell_marks : filter_nearest, repeat_disable;
 // Oil on the ground (cell) and afloat on the water (tile, TtwWater's slick).
-uniform sampler2D oil_tex : filter_linear, repeat_disable;
 // Snow: the tile's authored snow, what was taken from each cell, and the
 // map-wide level (TtwSnowSystem): depth = base + level - gone.
-uniform sampler2D snow_gone_tex : filter_linear, repeat_disable;
 global uniform float ttw_snow;
 global uniform float ttw_thaw;
 // Whole-map tile layers.
@@ -163,7 +160,7 @@ float noise(vec2 world, float scale) {
 // Snow lying at a point (px).
 float snow_depth(vec2 world) {
 	float base = texture(tile_layers, vec3(world / (map_tiles * tile_px), 3.0)).r;
-	return max(0.0, base + ttw_snow - texture(snow_gone_tex, cell_uv(world)).r);
+	return max(0.0, base + ttw_snow - texture(cell_layers, vec3(cell_uv(world), 5.0)).r);
 }
 
 // The ground's height offset (px): deformation and loose mud, with pushed-up
@@ -171,8 +168,8 @@ float snow_depth(vec2 world) {
 float relief(vec2 world) {
 	vec2 uv = cell_uv(world);
 	float snow = snow_depth(world);
-	float d = texture(deform_tex, uv).r;
-	float l = texture(loose_tex, uv).r;
+	float d = texture(cell_layers, vec3(uv, 0.0)).r;
+	float l = texture(cell_layers, vec3(uv, 1.0)).r;
 	float heaped = max(d, 0.0) + l;
 	if (heaped > 0.05) return d + l + snow + heaped * (noise(world, 3.0) - 0.5) * clump_strength;
 	return d + l + snow;
@@ -246,7 +243,7 @@ vec4 splat(vec2 p, out int id) {
 // Wear changes what a material looks like: grass is torn into mud in clumps
 // as it wears through, pavement cracks and then breaks up into gravel.
 vec4 worn(vec4 base, inout int id, vec2 p) {
-	float w = texelFetch(wear_tex, ivec2(cell_uv(p) * chunk_texels), 0).r;
+	float w = texelFetch(cell_marks, ivec3(ivec2(cell_uv(p) * chunk_texels), 2), 0).r;
 	if (w <= 0.0) return base;
 	if (id == 1) {
 		if (w >= 1.0 || noise(p, 3.0) * 0.8 + 0.2 < w * 0.9) {
@@ -336,9 +333,9 @@ float self_shadow(vec2 g) {
 
 float tread_imprint(vec2 g) {
 	vec2 uv = cell_uv(g);
-	float strength = texture(track_tex, uv).r;
+	float strength = texture(cell_marks, vec3(uv, 0.0)).r;
 	if (strength <= 0.01) return 0.0;
-	float a = texture(angle_tex, uv).r;
+	float a = texture(cell_marks, vec3(uv, 1.0)).r;
 	vec2 along = vec2(cos(a), sin(a));
 	vec2 across = vec2(-along.y, along.x);
 	float u = dot(g, along);
@@ -361,15 +358,15 @@ vec3 shade_dry(vec2 g, int tier) {
 	s = worn(s, id, g);
 	vec3 albedo = s.rgb;
 	// Burns: charred clumps that thin out toward the edge.
-	float burn = texture(scorch_tex, cell_uv(g)).r;
+	float burn = texture(cell_layers, vec3(cell_uv(g), 3.0)).r;
 	// Oil: a dark stain, with a sheen where the ground is wet.
-	float film = texture(oil_tex, cell_uv(g)).r;
+	float film = texture(cell_layers, vec3(cell_uv(g), 4.0)).r;
 	if (film > 0.002) {
 		// Even a thin film shows: the stain and sheen are full by a few hundredths.
 		float cover = smoothstep(0.002, 0.03, film);
 		albedo = mix(albedo, albedo * 0.35 + vec3(0.02, 0.02, 0.03), cover * oil_stain);
 		if (tier < 2) {
-			float glossy = clamp(texture(wet_tex, cell_uv(g)).r * 1.5 + 0.3, 0.0, 1.0);
+			float glossy = clamp(texture(cell_layers, vec3(cell_uv(g), 2.0)).r * 1.5 + 0.3, 0.0, 1.0);
 			albedo = mix(albedo, film_colour(film, g) * 0.55, cover * oil_sheen * glossy);
 		}
 	}
@@ -390,8 +387,8 @@ vec3 shade_dry(vec2 g, int tier) {
 		float imprint = tread_imprint(g);
 		albedo = mix(albedo, albedo * (0.92 - 0.12 * imprint * imprint_strength), pressed);
 	}
-	float loose = texture(loose_tex, uv).r;
-	float wet = clamp(max(texture(wet_tex, uv).r, ttw_soil * 0.8), 0.0, 1.0);
+	float loose = texture(cell_layers, vec3(uv, 1.0)).r;
+	float wet = clamp(max(texture(cell_layers, vec3(uv, 2.0)).r, ttw_soil * 0.8), 0.0, 1.0);
 	float ground = relief(g);
 	// Loose mud covers whatever it lies on.
 	// Loose mud covers whatever it lies on, in clumps with crisp edges.
@@ -399,8 +396,8 @@ vec3 shade_dry(vec2 g, int tier) {
 	vec3 loose_color = loose_mud_color * (clump == 2 ? 1.18 : (clump == 0 ? 0.82 : 1.0));
 	albedo = mix(albedo, loose_color, step(0.15 + 0.35 * noise(g, 3.0), loose));
 	// A dark tide line where wet ground meets dry.
-	float wx = texture(wet_tex, cell_uv(g + vec2(2.0, 0.0))).r - texture(wet_tex, cell_uv(g - vec2(2.0, 0.0))).r;
-	float wy = texture(wet_tex, cell_uv(g + vec2(0.0, 2.0))).r - texture(wet_tex, cell_uv(g - vec2(0.0, 2.0))).r;
+	float wx = texture(cell_layers, vec3(cell_uv(g + vec2(2.0, 0.0)), 2.0)).r - texture(cell_layers, vec3(cell_uv(g - vec2(2.0, 0.0)), 2.0)).r;
+	float wy = texture(cell_layers, vec3(cell_uv(g + vec2(0.0, 2.0)), 2.0)).r - texture(cell_layers, vec3(cell_uv(g - vec2(0.0, 2.0)), 2.0)).r;
 	albedo *= 1.0 - clamp(length(vec2(wx, wy)) * 1.5, 0.0, 1.0) * wet_edge;
 	// Mud drying out cracks into plates.
 	if (id == 0 && wet > 0.02 && wet < 0.45 && loose < 0.1) {
@@ -419,7 +416,7 @@ vec3 shade_dry(vec2 g, int tier) {
 	float snowed = 0.0;
 	if (snow > 0.0) {
 		snowed = step(0.5, snow * 1.6 + (noise(g, 5.0) - 0.5) * snow_patchiness);
-		bool packed = texture(snow_gone_tex, cell_uv(g)).r > 0.4;
+		bool packed = texture(cell_layers, vec3(cell_uv(g), 5.0)).r > 0.4;
 		// Broad, soft drifts: two close tones in large clusters.
 		vec3 white = packed ? packed_snow : mix(snow_light * 0.96, snow_light, step(0.5, noise(g, 14.0)));
 		white = mix(white, slush, ttw_thaw * (packed ? 0.8 : 0.4) * (1.0 - smoothstep(0.5, 3.0, snow)));
@@ -648,19 +645,19 @@ vec3 overlay_color(vec2 p, vec3 under) {
 	vec2 uv = cell_uv(p);
 	float v = 0.0;
 	bool shown = true;
-	if (overlay == 1) v = texelFetch(wear_tex, ivec2(uv * chunk_texels), 0).r;
-	else if (overlay == 2) v = texture(wet_tex, uv).r;
+	if (overlay == 1) v = texelFetch(cell_marks, ivec3(ivec2(uv * chunk_texels), 2), 0).r;
+	else if (overlay == 2) v = texture(cell_layers, vec3(uv, 2.0)).r;
 	else if (overlay == 3) v = 0.5 + relief(p) / 16.0;
-	else if (overlay == 4) v = texture(loose_tex, uv).r / 3.0;
-	else if (overlay == 5) v = texture(track_tex, uv).r;
-	else if (overlay == 6) v = texture(scorch_tex, uv).r;
+	else if (overlay == 4) v = texture(cell_layers, vec3(uv, 1.0)).r / 3.0;
+	else if (overlay == 5) v = texture(cell_marks, vec3(uv, 0.0)).r;
+	else if (overlay == 6) v = texture(cell_layers, vec3(uv, 3.0)).r;
 	else if (overlay == 7) { float d = water_level(p) - relief(p); shown = d > 0.0; v = d / 12.0; }
 	else if (overlay == 8) {
 		int id; vec4 s = splat(p, id); s = worn(s, id, p);
 		return mix(vec3(dot(under, vec3(0.33))), PALETTE[id * 3 + 2], 0.8);
 	}
 	else if (overlay == 11) { v = snow_depth(p) / 8.0; }
-	else if (overlay == 10) { v = texture(oil_tex, uv).r + texture(tile_layers, vec3(p / (map_tiles * tile_px), 2.0)).r; }
+	else if (overlay == 10) { v = texture(cell_layers, vec3(uv, 4.0)).r + texture(tile_layers, vec3(p / (map_tiles * tile_px), 2.0)).r; }
 	else if (overlay == 9) { float e = elevation(p); v = fract(e / 32.0); if (fract(e / 4.0) < 0.12) return vec3(0.1); }
 	float grey = dot(under, vec3(0.299, 0.587, 0.114));
 	if (!shown || (overlay != 3 && overlay != 9 && v <= 0.001)) return vec3(grey * 0.8);
