@@ -59,7 +59,7 @@ same simulation and can be slower than the downloads on a busy map.
 - Left click or drag to select, right click to move or attack.
 - Ctrl and right click to fire at a spot on the ground, a tree or a house.
 - With a wrecker selected, right click a stuck vehicle to winch it out, or a tree to winch itself out of the mud.
-- R: engineers lay road. F: water tankers spray, bucket helicopters drop,
+- H: stop. X: wreckers let go. R: engineers lay road. F: water tankers spray, bucket helicopters drop,
   hippies throw smoke at the cursor.
 - WASD or arrows to pan, mouse wheel to zoom, Esc for the menu, F5 and F9 to
   save and load.

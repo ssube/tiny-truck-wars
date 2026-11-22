@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.2.2
+
+- Fixed: the game would not start on graphics cards and browsers that give a
+  shader only 16 textures. The ground now uses 16 at most, and a test keeps
+  every shader within that.
+- Ctrl and right click fires at a spot on the ground, a tree or a house.
+- A wrecker can winch itself to a tree, log or house: out of the mud, or
+  along.
+- Who pushes whom goes by weight: tanks shove trucks and cars, trucks shove
+  cars, and cars push nothing. Only a winch moves a wreck, and crashed
+  helicopters are wrecks on the ground too.
+- Water can have its own colour: the snowfield's lake is icy blue, the dune
+  oasis green.
+- Fixed: S did not scroll down. Stop is now H.
+- Fixed: reflections showed over dry ground beside the water.
+- The water's maps go to the graphics card only when the water changes.
+
 ## 0.2.1
 
 - Fixed: flames were drawn upside down, with the bright core at the top and

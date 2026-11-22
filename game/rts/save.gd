@@ -13,7 +13,7 @@ class_name TtwSave extends RefCounted
 ## Written as one Variant, ZSTD-compressed.
 
 const VERSION := 1
-const LAYERS := ["surface", "elevation", "water", "flow", "snow_base", "deform", "loose", "wet", "track", "track_angle", "wear", "scorch", "oil", "snow_gone"]
+const LAYERS := ["surface", "elevation", "water", "flow", "snow_base", "water_color", "deform", "loose", "wet", "track", "track_angle", "wear", "scorch", "oil", "snow_gone"]
 const WATER_ARRAYS := ["depth", "slick", "flux_w", "flux_e", "flux_n", "flux_s", "absorbed", "_soaked"]
 const WATER_BOOKS := ["added", "drained", "poured", "drawn", "infiltrated", "slick_total", "slick_drained"]
 const PLAIN := [TYPE_BOOL, TYPE_INT, TYPE_FLOAT, TYPE_STRING, TYPE_STRING_NAME, TYPE_VECTOR2, TYPE_VECTOR2I,
@@ -149,7 +149,9 @@ static func apply(game: TtwGame, data: Dictionary) -> void:
 	var t := TtwTerrain.new(saved.size)
 	# Copies: packed arrays are shared, and loading writes into the terrain's.
 	for name in LAYERS:
-		t.set(name, saved.layers[name].duplicate())
+		# A save from before a layer existed keeps the new terrain's default.
+		if saved.layers.has(name):
+			t.set(name, saved.layers[name].duplicate())
 	t.snow_level = saved.snow_level
 	t.water_sources.assign(saved.sources)
 	t.water_sinks.assign(saved.sinks)
@@ -163,7 +165,9 @@ static func apply(game: TtwGame, data: Dictionary) -> void:
 	# Making the water soaked the ground it found and queued it to settle:
 	# the saved layers and queue are the truth.
 	for name in LAYERS:
-		t.set(name, saved.layers[name].duplicate())
+		# A save from before a layer existed keeps the new terrain's default.
+		if saved.layers.has(name):
+			t.set(name, saved.layers[name].duplicate())
 	for i in t.settling:
 		t.unqueue_settle(i)
 	t.set_settling(PackedInt32Array())

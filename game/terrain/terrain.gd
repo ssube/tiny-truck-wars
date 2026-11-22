@@ -48,6 +48,9 @@ var flow: PackedVector2Array
 ## since less what has thawed, everywhere at once (px; negative once the
 ## thaw has eaten into the base).
 var snow_base: PackedFloat32Array
+## The colour of the water standing on each tile (alpha: how far it replaces
+## the shader's own clear-water colours; 0, the default, leaves them).
+var water_color: PackedColorArray
 var snow_level: float = 0.0
 ## Where water comes from and goes: {"rect": Rect2i (tiles), "level": float
 ## (px, absolute like elevation)}. A source keeps its tiles up to the level,
@@ -114,6 +117,7 @@ func _init(tiles: Vector2i) -> void:
 	water.fill(NO_WATER)
 	flow.resize(tile_count)
 	snow_base.resize(tile_count)
+	water_color.resize(tile_count)
 	floors_stale.resize(tile_count)
 	path_stale.resize(tile_count)
 	var cell_count := size_cells.x * size_cells.y
@@ -245,6 +249,12 @@ func set_material(tile: Vector2i, id: int) -> void:
 		surface[tile_index(tile)] = id
 		tiles_dirty = true
 		stale_path(tile_index(tile))
+
+## Colours the water on `tile` (alpha: how strongly).
+func set_water_color(tile: Vector2i, color: Color) -> void:
+	if has_tile(tile):
+		water_color[tile_index(tile)] = color
+		tiles_dirty = true
 
 func set_elevation(tile: Vector2i, height: float) -> void:
 	if has_tile(tile):
@@ -417,6 +427,10 @@ func flow_image() -> Image:
 
 func snow_base_image() -> Image:
 	return Image.create_from_data(size_tiles.x, size_tiles.y, false, Image.FORMAT_RF, snow_base.to_byte_array())
+
+## The water's colour per tile as an RGBAF image.
+func water_color_image() -> Image:
+	return Image.create_from_data(size_tiles.x, size_tiles.y, false, Image.FORMAT_RGBAF, water_color.to_byte_array())
 
 func water_image() -> Image:
 	return Image.create_from_data(size_tiles.x, size_tiles.y, false, Image.FORMAT_RF, water.to_byte_array())

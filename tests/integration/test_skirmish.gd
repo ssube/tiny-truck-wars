@@ -177,3 +177,28 @@ func test_a_selected_wrecker_right_clicked_onto_a_tree_winches_itself_to_it() ->
 	_right_click(post + Vector2(1, 0), false)
 	assert_object(game.session.linked(truck, TtwWinching)).is_same(tree)
 	assert_bool(truck.has_component(TtwMoveOrder)).is_false()
+
+func _hold(code: Key, down: bool) -> void:
+	var key := InputEventKey.new()
+	key.keycode = code
+	key.physical_keycode = code
+	key.pressed = down
+	Input.parse_input_event(key)
+	Input.flush_buffered_events()
+
+func test_s_pans_down_like_the_other_wasd_keys_and_h_stops() -> void:
+	await _start()
+	var c := game.commander
+	assert_vector(TtwCommander.key_pan()).is_equal(Vector2.ZERO)
+	for pair in [[KEY_S, Vector2.DOWN], [KEY_W, Vector2.UP], [KEY_A, Vector2.LEFT], [KEY_D, Vector2.RIGHT]]:
+		_hold(pair[0], true)
+		assert_vector(TtwCommander.key_pan()).override_failure_message("key %d" % pair[0]).is_equal(pair[1])
+		_hold(pair[0], false)
+	# S no longer stops anything; H does.
+	var tank: Entity = _own(&"tank")[0]
+	c.select_at(game.session.body_of(tank).position)
+	c.order_at(game.session.body_of(tank).position + Vector2(200, 0))
+	_key(KEY_S)
+	assert_bool(tank.has_component(TtwMoveOrder)).is_true()
+	_key(KEY_H)
+	assert_bool(tank.has_component(TtwMoveOrder)).is_false()

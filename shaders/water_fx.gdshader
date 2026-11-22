@@ -11,7 +11,9 @@ render_mode blend_disabled, unshaded;
 // draw into an HDR buffer is not a dependable add in every renderer).
 
 uniform sampler2D state : hint_screen_texture, filter_linear, repeat_disable;
-uniform sampler2D water_tex : filter_linear, repeat_disable;
+// The ground's tile layers (TtwTerrainView.tile_layers): layer 1 is the
+// water level.
+uniform sampler2DArray tile_layers : filter_linear, repeat_disable;
 uniform sampler2D flow_tex : filter_linear, repeat_disable;
 uniform vec2 map_px = vec2(1024.0, 640.0);
 uniform vec2 texels = vec2(256.0, 160.0);
@@ -36,7 +38,7 @@ float hash(vec2 p) {
 void fragment() {
 	vec2 uv = SCREEN_UV;
 	vec2 texel = 1.0 / texels;
-	float level = texture(water_tex, uv).r;
+	float level = texture(tile_layers, vec3(uv, 1.0)).r;
 	if (level < -32.0) {
 		COLOR = vec4(0.0);
 	} else {

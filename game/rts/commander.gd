@@ -12,7 +12,7 @@ class_name TtwCommander extends Node2D
 ##                   cursor (a tree, a house, anything with health, any side)
 ##                   or, if nothing is, the ground there
 ##   X               the selected wreckers let go
-##   S               stop
+##   H               stop (halt)
 ##   R               the selected engineers start or stop laying road
 ##   F               the special at the cursor: Water tankers spray it,
 ##                   bucket helicopters drop on it, hippies smoke it
@@ -48,11 +48,7 @@ func session() -> KitSession:
 	return game.session
 
 func _process(delta: float) -> void:
-	var pan := Vector2.ZERO
-	if Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT): pan.x -= 1
-	if Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT): pan.x += 1
-	if Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP): pan.y -= 1
-	if Input.is_physical_key_pressed(KEY_DOWN): pan.y += 1
+	var pan := key_pan()
 	var screen := get_viewport().get_mouse_position()
 	var view := get_viewport_rect().size
 	if DisplayServer.window_is_focused() and Rect2(Vector2.ZERO, view).has_point(screen):
@@ -67,6 +63,15 @@ func _process(delta: float) -> void:
 	# lambda would fail on the very ones this drops.
 	selected.assign(selected.filter(func(e): return is_instance_valid(e) and session().body_of(e) != null))
 	queue_redraw()
+
+## The way the held keys pan the view: WASD or the arrows.
+static func key_pan() -> Vector2:
+	var pan := Vector2.ZERO
+	if Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT): pan.x -= 1
+	if Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT): pan.x += 1
+	if Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP): pan.y -= 1
+	if Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN): pan.y += 1
+	return pan
 
 ## Keeps the view on the map (centred on it where the map is the smaller).
 ## Called as the game starts too: a larger window sees further, and a base
@@ -108,7 +113,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
 			KEY_X: release()
-			KEY_S: stop()
+			KEY_H: stop()
 			KEY_R: toggle_paving()
 			KEY_F: special_at(at)
 

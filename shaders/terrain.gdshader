@@ -23,17 +23,20 @@ uniform sampler2D wear_tex : filter_nearest, repeat_disable;
 uniform sampler2D scorch_tex : filter_linear, repeat_disable;
 // Oil on the ground (cell) and afloat on the water (tile, TtwWater's slick).
 uniform sampler2D oil_tex : filter_linear, repeat_disable;
-uniform sampler2D slick_tex : hint_default_black, filter_linear, repeat_disable;
 // Snow: the tile's authored snow, what was taken from each cell, and the
 // map-wide level (TtwSnowSystem): depth = base + level - gone.
-uniform sampler2D snow_base_tex : hint_default_black, filter_linear, repeat_disable;
 uniform sampler2D snow_gone_tex : filter_linear, repeat_disable;
 global uniform float ttw_snow;
 global uniform float ttw_thaw;
 // Whole-map tile layers.
 uniform sampler2D surface_tex : filter_nearest, repeat_disable;
-uniform sampler2D elevation_tex : filter_linear, repeat_disable;
-uniform sampler2D water_tex : filter_linear, repeat_disable;
+// The smooth whole-map tile layers in one texture (TtwTerrainView.TILE_*):
+// 0 elevation, 1 water level, 2 oil slick afloat, 3 authored snow. One
+// texture unit for four: a GL device may have only 16 for this shader.
+uniform sampler2DArray tile_layers : filter_linear, repeat_disable;
+// The water's colour per tile (alpha: how far it replaces water_shallow and
+// water_deep; 0 leaves them).
+uniform sampler2D water_color_tex : hint_default_transparent, filter_linear, repeat_disable;
 // The water's current per tile (px/s), from the simulation.
 uniform sampler2D flow_tex : filter_linear, repeat_disable;
 // The water's GPU detail (TtwWaterFx): foam, silt, ripple height, ripple speed.
@@ -159,7 +162,7 @@ float noise(vec2 world, float scale) {
 
 // Snow lying at a point (px).
 float snow_depth(vec2 world) {
-	float base = texture(snow_base_tex, world / (map_tiles * tile_px)).r;
+	float base = texture(tile_layers, vec3(world / (map_tiles * tile_px), 3.0)).r;
 	return max(0.0, base + ttw_snow - texture(snow_gone_tex, cell_uv(world)).r);
 }
 
@@ -176,11 +179,11 @@ float relief(vec2 world) {
 }
 
 float water_level(vec2 world) {
-	return texture(water_tex, world / (map_tiles * tile_px)).r;
+	return texture(tile_layers, vec3(world / (map_tiles * tile_px), 1.0)).r;
 }
 
 float elevation(vec2 world) {
-	return texture(elevation_tex, world / (map_tiles * tile_px)).r;
+	return texture(tile_layers, vec3(world / (map_tiles * tile_px), 0.0)).r;
 }
 
 int material_at_tile(ivec2 tile) {
@@ -563,7 +566,12 @@ vec3 shade_water(vec2 g, int tier, float depth) {
 		transmitted += caustics_color * pattern * caustics_intensity * exp(-depth / color_depth);
 	}
 	float absorption = 1.0 - exp(-depth / max(color_depth, 0.1));
-	vec3 tint = mix(water_shallow, water_deep, clamp(depth / water_depth_px, 0.0, 1.0));
+	// This water's own colour, where the map gives one: its shallows that
+	// colour, its depths the same darkened.
+	vec4 own = texture(water_color_tex, g / map_px);
+	vec3 shallow_tint = mix(water_shallow, own.rgb, own.a);
+	vec3 deep_tint = mix(water_deep, own.rgb * 0.45, own.a);
+	vec3 tint = mix(shallow_tint, deep_tint, clamp(depth / water_depth_px, 0.0, 1.0));
 	// Silt stirred up by vehicles and blasts, carried off by the current.
 	float silt = fx.g * silt_strength;
 	tint = mix(tint, silt_color, clamp(silt * 1.4, 0.0, 1.0));
@@ -577,7 +585,7 @@ vec3 shade_water(vec2 g, int tier, float depth) {
 		vec3 hv = normalize(normalize(sun_dir) + v);
 		color += sky_color * pow(max(dot(n, hv), 0.0), 90.0) * sun_glint * shallow;
 		// An oil slick: rainbow bands carried on the current, calming the foam.
-		float slick = texture(slick_tex, g / map_px).r;
+		float slick = texture(tile_layers, vec3(g / map_px, 2.0)).r;
 		if (slick > 0.01) {
 			float cover = smoothstep(0.01, 0.6, slick) * 0.55;
 			color = mix(color, film_colour(slick * 3.0, g - direction * TIME * speed * 0.3) * 0.5 + color * 0.5, cover);
@@ -652,7 +660,7 @@ vec3 overlay_color(vec2 p, vec3 under) {
 		return mix(vec3(dot(under, vec3(0.33))), PALETTE[id * 3 + 2], 0.8);
 	}
 	else if (overlay == 11) { v = snow_depth(p) / 8.0; }
-	else if (overlay == 10) { v = texture(oil_tex, uv).r + texture(slick_tex, p / (map_tiles * tile_px)).r; }
+	else if (overlay == 10) { v = texture(oil_tex, uv).r + texture(tile_layers, vec3(p / (map_tiles * tile_px), 2.0)).r; }
 	else if (overlay == 9) { float e = elevation(p); v = fract(e / 32.0); if (fract(e / 4.0) < 0.12) return vec3(0.1); }
 	float grey = dot(under, vec3(0.299, 0.587, 0.114));
 	if (!shown || (overlay != 3 && overlay != 9 && v <= 0.001)) return vec3(grey * 0.8);

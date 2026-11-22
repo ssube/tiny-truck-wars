@@ -48,9 +48,16 @@ var show_tiers: bool = false:
 		for chunk in _chunks:
 			chunk.modulate = _tier_tint(chunk.tier) if show_tiers else Color.WHITE
 
+## The whole-map tile layers the ground shader reads smoothly, one texture
+## (one texture unit: a GL device may have only 16 for the whole shader),
+## a layer each, each updated on its own: TILE_LAYER_*.
+const TILE_ELEVATION := 0
+const TILE_WATER := 1
+const TILE_SLICK := 2
+const TILE_SNOW_BASE := 3
+var tile_layers: Texture2DArray
 var surface_texture: ImageTexture
-var elevation_texture: ImageTexture
-var water_texture: ImageTexture
+var water_color_texture: ImageTexture
 ## How deep the water stands in each tile (TtwWater.depth), for things drawn
 ## over the water that must stop at its edge (vehicle reflections): the
 ## global `ttw_water`. Made once the view has a water simulation.
@@ -59,8 +66,6 @@ var depth_texture: ImageTexture
 ## view leaving after the next one arrived does not clear the new one's).
 static var _water_owner := 0
 var flow_texture: ImageTexture
-var slick_texture: ImageTexture
-var snow_base_texture: ImageTexture
 ## The water simulation, for its oil slick (or null).
 var water_sim: TtwWater
 var noise_texture: ImageTexture
@@ -125,14 +130,15 @@ func show_terrain(value: TtwTerrain) -> void:
 		add_child(_screen)
 	_placed_for = Transform2D(0.0, Vector2.ZERO, 0.0, Vector2.ZERO)
 	surface_texture = ImageTexture.create_from_image(terrain.surface_image())
-	elevation_texture = ImageTexture.create_from_image(terrain.elevation_image())
-	snow_base_texture = ImageTexture.create_from_image(terrain.snow_base_image())
-	water_texture = ImageTexture.create_from_image(terrain.water_image())
-	RenderingServer.global_shader_parameter_set(&"ttw_map_px", Vector2(terrain.size_px()))
-	flow_texture = ImageTexture.create_from_image(terrain.flow_image())
+	water_color_texture = ImageTexture.create_from_image(terrain.water_color_image())
 	var none := PackedFloat32Array()
 	none.resize(terrain.size_tiles.x * terrain.size_tiles.y)
-	slick_texture = ImageTexture.create_from_image(Image.create_from_data(terrain.size_tiles.x, terrain.size_tiles.y, false, Image.FORMAT_RF, none.to_byte_array()))
+	tile_layers = Texture2DArray.new()
+	tile_layers.create_from_images([terrain.elevation_image(), terrain.water_image(),
+		Image.create_from_data(terrain.size_tiles.x, terrain.size_tiles.y, false, Image.FORMAT_RF, none.to_byte_array()),
+		terrain.snow_base_image()])
+	RenderingServer.global_shader_parameter_set(&"ttw_map_px", Vector2(terrain.size_px()))
+	flow_texture = ImageTexture.create_from_image(terrain.flow_image())
 	terrain.tiles_dirty = false
 	terrain.water_dirty = false
 	var chunk_px := TtwTerrain.CHUNK_TILES * TtwTerrain.tile_px()
@@ -153,11 +159,9 @@ func show_terrain(value: TtwTerrain) -> void:
 			shader_material.set_shader_parameter("apron_cells", float(TtwTerrain.APRON))
 			shader_material.set_shader_parameter("chunk_texels", float(TtwTerrain.CHUNK_TEXELS))
 			shader_material.set_shader_parameter("surface_tex", surface_texture)
-			shader_material.set_shader_parameter("elevation_tex", elevation_texture)
-			shader_material.set_shader_parameter("snow_base_tex", snow_base_texture)
-			shader_material.set_shader_parameter("water_tex", water_texture)
+			shader_material.set_shader_parameter("tile_layers", tile_layers)
+			shader_material.set_shader_parameter("water_color_tex", water_color_texture)
 			shader_material.set_shader_parameter("flow_tex", flow_texture)
-			shader_material.set_shader_parameter("slick_tex", slick_texture)
 			shader_material.set_shader_parameter("noise_tex", noise_texture)
 			chunk.material = shader_material
 			chunk.material_ref = shader_material
@@ -258,15 +262,16 @@ func refresh(delta: float = 0.0) -> void:
 	_layers_this_frame = 0
 	if terrain.tiles_dirty:
 		surface_texture.update(terrain.surface_image())
-		elevation_texture.update(terrain.elevation_image())
-		snow_base_texture.update(terrain.snow_base_image())
+		water_color_texture.update(terrain.water_color_image())
+		tile_layers.update_layer(terrain.elevation_image(), TILE_ELEVATION)
+		tile_layers.update_layer(terrain.snow_base_image(), TILE_SNOW_BASE)
 		terrain.tiles_dirty = false
 	if water_sim != null and depth_texture == null:
 		depth_texture = ImageTexture.create_from_image(water_sim.depth_image())
 		RenderingServer.global_shader_parameter_set(&"ttw_water", depth_texture)
 		_water_owner = get_instance_id()
 	if terrain.water_dirty:
-		water_texture.update(terrain.water_image())
+		tile_layers.update_layer(terrain.water_image(), TILE_WATER)
 		flow_texture.update(terrain.flow_image())
 		if depth_texture != null:
 			depth_texture.update(water_sim.depth_image())
@@ -274,7 +279,7 @@ func refresh(delta: float = 0.0) -> void:
 	# The slick keeps its own flag: it moves on every water step with oil
 	# afloat, and changes when oil is spilt or burns.
 	if water_sim != null and water_sim.slick_dirty:
-		slick_texture.update(water_sim.slick_image())
+		tile_layers.update_layer(water_sim.slick_image(), TILE_SLICK)
 		water_sim.slick_dirty = false
 	_place_buffer()
 	var view := view_rect()

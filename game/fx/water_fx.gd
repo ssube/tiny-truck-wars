@@ -50,7 +50,7 @@ func show_terrain(value: TtwTerrain, view: TtwTerrainView) -> void:
 	var texels := terrain.size_tiles * TEXELS_PER_TILE
 	viewport.size = texels
 	_rect.size = Vector2(texels)
-	_step.set_shader_parameter("water_tex", view.water_texture)
+	_step.set_shader_parameter("tile_layers", view.tile_layers)
 	_step.set_shader_parameter("flow_tex", view.flow_texture)
 	_step.set_shader_parameter("map_px", terrain.size_px())
 	_step.set_shader_parameter("texels", Vector2(texels))

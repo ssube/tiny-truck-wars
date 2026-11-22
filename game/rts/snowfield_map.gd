@@ -43,6 +43,8 @@ static func terrain(seed: int = 11) -> TtwTerrain:
 			var tile := Vector2i(x, y)
 			t.set_material(tile, TtwMaterials.SAND)
 			t.water[t.tile_index(tile)] = LEVEL
+			# Meltwater: clear and icy blue.
+			t.water_color[t.tile_index(tile)] = Color(0.42, 0.62, 0.70, 0.7)
 			t.snow_base[t.tile_index(tile)] = 0.0
 			for cy in range(y * n, (y + 1) * n):
 				for cx in range(x * n, (x + 1) * n):

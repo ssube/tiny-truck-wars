@@ -87,7 +87,7 @@ within 5 tiles, and the fuel in one depot.
   of mud, or along); on an enemy, units with guns attack it. Ctrl+right
   click fires: the guns shoot what is under the cursor (any side, a tree or
   a house) or the ground there until told otherwise. X lets go,
-  S stops, R has engineers lay road, F uses the special at the cursor (spray,
+  H stops, R has engineers lay road, F uses the special at the cursor (spray,
   drop, smoke), WASD / arrows / screen edge pan,
   wheel zooms. Build buttons place structures with a ghost (green or red, the
   helipad's reach drawn).

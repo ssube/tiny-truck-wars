@@ -52,6 +52,8 @@ static func terrain(seed: int = 5) -> TtwTerrain:
 			if d < 3.5:
 				t.set_material(tile, TtwMaterials.MUD)
 				t.water[t.tile_index(tile)] = -1.0
+				# The oasis: green with weed.
+				t.water_color[t.tile_index(tile)] = Color(0.30, 0.44, 0.22, 0.75)
 				for cy in range(y * n, (y + 1) * n):
 					for cx in range(x * n, (x + 1) * n):
 						t.deform[cy * t.size_cells.x + cx] = -6.0 * (1.0 - d / 3.5) - 1.5

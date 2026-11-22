@@ -36,7 +36,7 @@ garage to win.
 | Right click | Move; on an enemy, attack; with a wrecker, winch a stuck vehicle, or winch itself to a tree |
 | Ctrl + right click | Fire at what is under the cursor (a tree, a house) or at the ground there |
 | X | Wreckers let go |
-| S | Stop |
+| H | Stop (halt) |
 | R | Engineers start or stop laying road |
 | F | Use the special at the cursor (spray, drop, smoke) |
 | WASD / arrows / screen edge | Pan |
