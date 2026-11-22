@@ -51,6 +51,13 @@ var show_tiers: bool = false:
 var surface_texture: ImageTexture
 var elevation_texture: ImageTexture
 var water_texture: ImageTexture
+## How deep the water stands in each tile (TtwWater.depth), for things drawn
+## over the water that must stop at its edge (vehicle reflections): the
+## global `ttw_water`. Made once the view has a water simulation.
+var depth_texture: ImageTexture
+## The view whose depth texture the global `ttw_water` holds (an id, so a
+## view leaving after the next one arrived does not clear the new one's).
+static var _water_owner := 0
 var flow_texture: ImageTexture
 var slick_texture: ImageTexture
 var snow_base_texture: ImageTexture
@@ -121,6 +128,7 @@ func show_terrain(value: TtwTerrain) -> void:
 	elevation_texture = ImageTexture.create_from_image(terrain.elevation_image())
 	snow_base_texture = ImageTexture.create_from_image(terrain.snow_base_image())
 	water_texture = ImageTexture.create_from_image(terrain.water_image())
+	RenderingServer.global_shader_parameter_set(&"ttw_map_px", Vector2(terrain.size_px()))
 	flow_texture = ImageTexture.create_from_image(terrain.flow_image())
 	var none := PackedFloat32Array()
 	none.resize(terrain.size_tiles.x * terrain.size_tiles.y)
@@ -185,6 +193,9 @@ func _enter_tree() -> void:
 
 func _exit_tree() -> void:
 	RenderingServer.frame_pre_draw.disconnect(_before_draw)
+	if _water_owner == get_instance_id():
+		_water_owner = 0
+		RenderingServer.global_shader_parameter_set(&"ttw_water", null)
 
 ## A camera moved during the frame reaches the canvas after every _process:
 ## the buffer is put where the view is now, just before it is drawn.
@@ -250,9 +261,15 @@ func refresh(delta: float = 0.0) -> void:
 		elevation_texture.update(terrain.elevation_image())
 		snow_base_texture.update(terrain.snow_base_image())
 		terrain.tiles_dirty = false
+	if water_sim != null and depth_texture == null:
+		depth_texture = ImageTexture.create_from_image(water_sim.depth_image())
+		RenderingServer.global_shader_parameter_set(&"ttw_water", depth_texture)
+		_water_owner = get_instance_id()
 	if terrain.water_dirty:
 		water_texture.update(terrain.water_image())
 		flow_texture.update(terrain.flow_image())
+		if depth_texture != null:
+			depth_texture.update(water_sim.depth_image())
 	if water_sim != null and water_sim.slick_dirty:
 		slick_texture.update(water_sim.slick_image())
 		water_sim.slick_dirty = false

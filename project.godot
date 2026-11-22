@@ -82,3 +82,11 @@ ttw_thaw={
 "type": "float",
 "value": 0.0
 }
+ttw_water={
+"type": "sampler2D",
+"value": ""
+}
+ttw_map_px={
+"type": "vec2",
+"value": Vector2(1, 1)
+}

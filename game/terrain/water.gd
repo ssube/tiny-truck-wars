@@ -197,6 +197,10 @@ func _level(i: int) -> float:
 	return (volume + sums[low]) / low
 
 ## The volume over a tile when its water stands at `level` (relief px).
+## Each tile's depth (volume per cell area, px) as an image, for the view.
+func depth_image() -> Image:
+	return Image.create_from_data(terrain.size_tiles.x, terrain.size_tiles.y, false, Image.FORMAT_RF, depth.to_byte_array())
+
 func volume_at(i: int, level: float) -> float:
 	if terrain.floors_stale[i] != 0:
 		_refresh_tile(i)
