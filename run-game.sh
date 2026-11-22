@@ -7,6 +7,7 @@
 #   ./run-game.sh -- --map=dunes        game arguments after -- (--map=river|snowfield|dunes,
 #                                       --watch, --load=<path>)
 #   GODOT=/path/to/godot ./run-game.sh  another engine (default: godot on the PATH)
+#   TTW_SCENE=res://… ./run-game.sh     open that scene instead (run-lab.sh: the Mud Lab)
 set -euo pipefail
 PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 ENGINE=${GODOT:-godot}
@@ -44,4 +45,9 @@ cd "$PROJECT_DIR"
 if [ ! -d .godot ]; then
   "$ENGINE" --headless --path . --import >/dev/null 2>&1 || true
 fi
-exec "$ENGINE" --path . "${PLACE[@]}" --resolution "${WIDTH}x${HEIGHT}" "${ENGINE_ARGS[@]}" -- "${GAME_ARGS[@]}"
+# A scene to open instead of the title screen (run-lab.sh sets it).
+SCENE=()
+if [ -n "${TTW_SCENE:-}" ]; then
+  SCENE=("$TTW_SCENE")
+fi
+exec "$ENGINE" --path . "${PLACE[@]}" --resolution "${WIDTH}x${HEIGHT}" "${ENGINE_ARGS[@]}" "${SCENE[@]}" -- "${GAME_ARGS[@]}"

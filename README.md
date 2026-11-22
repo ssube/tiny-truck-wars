@@ -58,6 +58,7 @@ You need Godot 4.7.2 (`godot` on your PATH, or set `GODOT`).
 godot --headless --path . --import          # once, after cloning
 ./run-game.sh                               # the title screen, 1920×1080 on the primary monitor
 ./run-game.sh --fullscreen -- --map=dunes   # --map=river|snowfield|dunes, --watch, --load=<path>
+./run-lab.sh                                # the Mud Lab straight away
 ```
 
 The title screen starts a skirmish on any map, loads the saved game, or opens
