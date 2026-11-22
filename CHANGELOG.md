@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.4
+
+- Fixed: water was drawn much too dark (0.2.2 and 0.2.3). The river is back
+  to its colour, and a game saved in those versions loads with it too.
+
 ## 0.2.3
 
 - Fixed: the game still would not start in some browsers (Chrome, Edge) and

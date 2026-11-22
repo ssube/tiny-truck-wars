@@ -118,6 +118,8 @@ func _init(tiles: Vector2i) -> void:
 	flow.resize(tile_count)
 	snow_base.resize(tile_count)
 	water_color.resize(tile_count)
+	# Color() is opaque black: no colour of its own is transparent.
+	water_color.fill(Color(0, 0, 0, 0))
 	floors_stale.resize(tile_count)
 	path_stale.resize(tile_count)
 	var cell_count := size_cells.x * size_cells.y

@@ -84,3 +84,35 @@ func test_zooming_out_makes_every_tier_cheaper() -> void:
 	assert_int(TtwTerrainView.tier_for(TtwTerrainView.Tier.FULL, 0.0, TtwTerrainView.ZOOM_MID)).is_equal(TtwTerrainView.Tier.FULL)
 	assert_int(TtwTerrainView.tier_for(TtwTerrainView.Tier.FULL, 0.0, TtwTerrainView.ZOOM_MID - 0.01)).is_equal(TtwTerrainView.Tier.MID)
 	assert_int(TtwTerrainView.tier_for(TtwTerrainView.Tier.FULL, 0.0, TtwTerrainView.ZOOM_FAR - 0.01)).is_equal(TtwTerrainView.Tier.FAR)
+
+## Water has no colour of its own unless a map gives it one (alpha 0: the
+## shader's own clear-water colours), on a new ground and on the river map;
+## the snowfield's lake has its own.
+func test_water_has_no_colour_of_its_own_unless_a_map_gives_it() -> void:
+	var plain := TtwTerrain.new(Vector2i(4, 4))
+	for c in plain.water_color:
+		assert_float(c.a).is_equal(0.0)
+	var river := TtwSkirmishMap.terrain()
+	for c in river.water_color:
+		assert_float(c.a).is_equal(0.0)
+	var snow := TtwSnowfieldMap.terrain()
+	var lake := 0
+	for c in snow.water_color:
+		if c.a > 0.0:
+			lake += 1
+			assert_float(c.b).is_greater(c.r)
+	assert_int(lake).is_greater(0)
+
+## A save from 0.2.2 or 0.2.3, made when every tile's water colour started as
+## opaque black, loads with none; one with a colour of its own keeps it.
+func test_a_save_with_the_old_black_water_loads_with_none() -> void:
+	var t := TtwTerrain.new(Vector2i(4, 4))
+	t.water_color.fill(Color(0, 0, 0, 1))
+	TtwSave._clear_unset_water_color(t)
+	for c in t.water_color:
+		assert_float(c.a).is_equal(0.0)
+	t.water_color.fill(Color(0, 0, 0, 1))
+	t.water_color[3] = Color(0.4, 0.6, 0.7, 0.7)
+	TtwSave._clear_unset_water_color(t)
+	assert_float(t.water_color[0].a).is_equal(1.0)
+	assert_float(t.water_color[3].a).is_equal_approx(0.7, 0.001)

@@ -152,6 +152,7 @@ static func apply(game: TtwGame, data: Dictionary) -> void:
 		# A save from before a layer existed keeps the new terrain's default.
 		if saved.layers.has(name):
 			t.set(name, saved.layers[name].duplicate())
+	_clear_unset_water_color(t)
 	t.snow_level = saved.snow_level
 	t.water_sources.assign(saved.sources)
 	t.water_sinks.assign(saved.sinks)
@@ -168,6 +169,7 @@ static func apply(game: TtwGame, data: Dictionary) -> void:
 		# A save from before a layer existed keeps the new terrain's default.
 		if saved.layers.has(name):
 			t.set(name, saved.layers[name].duplicate())
+	_clear_unset_water_color(t)
 	for i in t.settling:
 		t.unqueue_settle(i)
 	t.set_settling(PackedInt32Array())
@@ -260,3 +262,12 @@ static func set_fields(object: Object, fields: Dictionary) -> void:
 			object.set(name, fields[name])
 
 #endregion
+
+## 0.2.2 and 0.2.3 started every tile's water colour as opaque black (Color()'s
+## default) instead of none: a save from them whose colours are all that
+## loads with none, as the map was meant to be.
+static func _clear_unset_water_color(t: TtwTerrain) -> void:
+	for c in t.water_color:
+		if c != Color(0, 0, 0, 1):
+			return
+	t.water_color.fill(Color(0, 0, 0, 0))
