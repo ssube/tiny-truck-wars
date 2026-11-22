@@ -21,6 +21,8 @@ const CHUNK_TEXELS := CHUNK_CELLS + 2 * APRON
 
 enum Layer { DEFORM, LOOSE, WET, TRACK, TRACK_ANGLE, WEAR, SCORCH, OIL, SNOW_GONE }
 const LAYER_COUNT := 9
+## Every cell layer, as the bits a mark takes (1 << Layer.DEFORM, ...).
+const ALL_LAYERS := (1 << LAYER_COUNT) - 1
 
 var size_tiles: Vector2i
 var size_cells: Vector2i
@@ -76,9 +78,11 @@ var snow_gone: PackedFloat32Array
 ## indices, and a flag per cell so none is queued twice.
 var settling: PackedInt32Array
 var _queued: PackedByteArray
-## Chunk index -> 1 when its cell layers changed since the view last took
-## them, and how many are marked.
-var _dirty_chunks: PackedByteArray
+## Chunk index -> the cell layers (a bit each, 1 << Layer) that changed since
+## the view last took them, and how many chunks are marked. A writer that
+## knows which layers it wrote says so, and the view uploads only those; one
+## that does not say marks them all.
+var _dirty_chunks: PackedInt32Array
 var _dirty_count: int = 0
 ## The tile layers changed (surface, elevation) since the view last took them.
 ## Tile index -> 1 when the relief of any of its cells (deform, loose) may have
@@ -268,15 +272,15 @@ func set_cell(layer_id: int, cell: Vector2i, value: float) -> void:
 	mark_cells(Rect2i(cell, Vector2i.ONE))
 
 ## Marks the chunks that show any cell of `rect` (a chunk shows its apron too).
-func mark_cells(rect: Rect2i) -> void:
+func mark_cells(rect: Rect2i, layers: int = ALL_LAYERS) -> void:
 	var grown := rect.grow(APRON)
 	var first := (grown.position / CHUNK_CELLS).clamp(Vector2i.ZERO, chunks - Vector2i.ONE)
 	var last := ((grown.end - Vector2i.ONE) / CHUNK_CELLS).clamp(Vector2i.ZERO, chunks - Vector2i.ONE)
 	for y in range(first.y, last.y + 1):
 		for i in range(y * chunks.x + first.x, y * chunks.x + last.x + 1):
 			if _dirty_chunks[i] == 0:
-				_dirty_chunks[i] = 1
 				_dirty_count += 1
+			_dirty_chunks[i] |= layers
 	var from := (rect.position / CELLS_PER_TILE).clamp(Vector2i.ZERO, size_tiles - Vector2i.ONE)
 	var to := ((rect.end - Vector2i.ONE) / CELLS_PER_TILE).clamp(Vector2i.ZERO, size_tiles - Vector2i.ONE)
 	for y in range(from.y, to.y + 1):
@@ -288,27 +292,27 @@ func mark_cells(rect: Rect2i) -> void:
 	cells_changed.emit(rect)
 
 ## Marks one cell's chunks without telling listeners (bulk settling).
-func mark_cell_quiet(index: int) -> void:
+func mark_cell_quiet(index: int, layers: int = ALL_LAYERS) -> void:
 	var cell := Vector2i(index % size_cells.x, index / size_cells.x)
 	var lo := ((cell - Vector2i(APRON, APRON)) / CHUNK_CELLS).clamp(Vector2i.ZERO, chunks - Vector2i.ONE)
 	var hi := ((cell + Vector2i(APRON, APRON)) / CHUNK_CELLS).clamp(Vector2i.ZERO, chunks - Vector2i.ONE)
 	for y in range(lo.y, hi.y + 1):
 		for i in range(y * chunks.x + lo.x, y * chunks.x + hi.x + 1):
 			if _dirty_chunks[i] == 0:
-				_dirty_chunks[i] = 1
 				_dirty_count += 1
+			_dirty_chunks[i] |= layers
 
 ## Marks the chunks that show any cell of one tile, without telling listeners.
 ## The apron is a tile wide, so a tile's cells all show in the same chunks.
-func mark_tile_quiet(tile_x: int, tile_y: int) -> void:
+func mark_tile_quiet(tile_x: int, tile_y: int, layers: int = ALL_LAYERS) -> void:
 	var x0 := maxi(tile_x - 1, 0) / CHUNK_TILES
 	var x1 := mini((tile_x + 1) / CHUNK_TILES, chunks.x - 1)
 	var y1 := mini((tile_y + 1) / CHUNK_TILES, chunks.y - 1)
 	for y in range(maxi(tile_y - 1, 0) / CHUNK_TILES, y1 + 1):
 		for i in range(y * chunks.x + x0, y * chunks.x + x1 + 1):
 			if _dirty_chunks[i] == 0:
-				_dirty_chunks[i] = 1
 				_dirty_count += 1
+			_dirty_chunks[i] |= layers
 
 ## Tells the water a cell's relief changed, without telling listeners (bulk
 ## settling: slumps and ruts springing back).
@@ -346,7 +350,7 @@ func unqueue_settle(index: int) -> void:
 	_queued[index] = 0
 
 func mark_all() -> void:
-	_dirty_chunks.fill(1)
+	_dirty_chunks.fill(ALL_LAYERS)
 	_dirty_count = _dirty_chunks.size()
 	tiles_dirty = true
 	water_dirty = true
@@ -357,6 +361,11 @@ func mark_all() -> void:
 
 func is_chunk_dirty(chunk: Vector2i) -> bool:
 	return _dirty_chunks[chunk.y * chunks.x + chunk.x] != 0
+
+## The cell layers of a chunk that changed since it was last cleaned, a bit
+## each (1 << Layer); 0 when none did.
+func chunk_dirty_layers(chunk: Vector2i) -> int:
+	return _dirty_chunks[chunk.y * chunks.x + chunk.x]
 
 ## Takes the chunk's dirty mark (the view has uploaded it).
 func clean_chunk(chunk: Vector2i) -> void:

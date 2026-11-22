@@ -15,8 +15,18 @@ func _ready() -> void:
 		return
 	_run.call_deferred()
 
+## Game ticks waited for each frame asked for: about what a frame took on
+## the software renderer these pictures were set up on. The wait is counted
+## in ticks as well, so a picture shows the same moment of the game however
+## fast the machine draws.
+const TICKS_PER_FRAME := 4
+
 func _frames(count: int) -> void:
+	var session: KitSession = lab.game.session
+	var until := session.tick + count * TICKS_PER_FRAME
 	for i in count:
+		await get_tree().process_frame
+	while session.tick < until:
 		await get_tree().process_frame
 
 func _run() -> void:

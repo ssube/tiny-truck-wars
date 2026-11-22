@@ -6,6 +6,8 @@ class_name TtwPathView extends Node2D
 var session: KitSession
 var camera: Camera2D
 var show_costs: bool = false
+## How strongly the weights tint the ground.
+var cost_alpha: float = 0.35
 
 func _process(_delta: float) -> void:
 	queue_redraw()
@@ -26,7 +28,7 @@ func _draw() -> void:
 			for x in range(lo.x, hi.x + 1):
 				var at := Vector2i(x, y)
 				var c := grid.cost[t.tile_index(at)]
-				var color := Color(0, 0, 0, 0.6) if grid.astar.is_point_solid(at) else Color.from_hsv(clampf(0.33 - (c - 1.0) * 0.08, 0.0, 0.33), 0.9, 0.9, 0.35)
+				var color := Color(0, 0, 0, minf(0.6, cost_alpha * 1.7)) if grid.astar.is_point_solid(at) else Color.from_hsv(clampf(0.33 - (c - 1.0) * 0.08, 0.0, 0.33), 0.9, 0.9, cost_alpha)
 				draw_rect(Rect2(Vector2(at) * tile, Vector2(tile, tile)), color)
 	for entity in session.view([TtwMoveOrder, KitBody]):
 		var o: TtwMoveOrder = entity.get_component(TtwMoveOrder)

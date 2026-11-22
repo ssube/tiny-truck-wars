@@ -33,7 +33,7 @@ var placing: StringName = &""
 var _drag_from: Vector2
 var _dragging: bool = false
 var _pressed: bool = false
-var _zoom := TtwZoom.new(PackedFloat32Array([1.0, 2.0, 3.0, 4.0, 5.0]))
+var _zoom := TtwZoom.new(TtwZoom.levels_for(TtwZoom.LAYOUT, TtwZoom.SKIRMISH_FAR, TtwZoom.SKIRMISH_NEAR))
 
 func _init() -> void:
 	name = "Commander"
@@ -56,21 +56,30 @@ func _process(delta: float) -> void:
 		if screen.y < EDGE_PX: pan.y -= 1
 		if screen.y > view.y - EDGE_PX: pan.y += 1
 	if pan != Vector2.ZERO:
-		var camera := game.camera
-		camera.position += pan.normalized() * PAN_SPEED * delta / camera.zoom.x
-		var half := view / camera.zoom * 0.5
-		var size := game.terrain.size_px()
-		camera.position = camera.position.clamp(half.min(size * 0.5), (size - half).max(size * 0.5))
+		game.camera.position += pan.normalized() * PAN_SPEED * delta / game.camera.zoom.x
+		clamp_camera()
 	# Untyped: a freed entity cannot be passed as an Entity, so a typed
 	# lambda would fail on the very ones this drops.
 	selected.assign(selected.filter(func(e): return is_instance_valid(e) and session().body_of(e) != null))
 	queue_redraw()
 
+## Keeps the view on the map (centred on it where the map is the smaller).
+## Called as the game starts too: a larger window sees further, and a base
+## near the edge would start with the view hanging over it.
+func clamp_camera() -> void:
+	var camera := game.camera
+	var half := get_viewport_rect().size / camera.zoom * 0.5
+	var size := game.terrain.size_px()
+	camera.position = camera.position.clamp(half.min(size * 0.5), (size - half).max(size * 0.5))
+
 func _unhandled_input(event: InputEvent) -> void:
 	var at := get_global_mouse_position()
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			# The levels for the window as it is now (TtwZoom).
+			_zoom.levels = TtwZoom.levels_for(get_viewport_rect().size, TtwZoom.SKIRMISH_FAR, TtwZoom.SKIRMISH_NEAR)
 			TtwZoom.toward(game.camera, at, _zoom.apply(event, game.camera.zoom.x))
+			clamp_camera()
 		elif event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
 				if not placing.is_empty():

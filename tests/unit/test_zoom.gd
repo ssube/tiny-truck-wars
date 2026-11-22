@@ -38,3 +38,28 @@ func test_zooming_keeps_the_point_under_the_cursor_where_it_is() -> void:
 	assert_vector((cursor - camera.position) * camera.zoom.x).is_equal_approx(on_screen, Vector2(0.001, 0.001))
 	assert_float(camera.zoom.x).is_equal(4.0)
 	camera.free()
+
+## Every screen shows about the same stretch of the world: the starting zoom
+## and the wheel's ends are the whole zooms nearest to what the 1280×720
+## layout shows at 3, and from 1 to 5 (the Mud Lab 0.5 to 8).
+func test_a_game_starts_showing_about_what_the_layout_shows_at_zoom_3() -> void:
+	assert_float(TtwZoom.start(Vector2(1280, 720))).is_equal(3.0)
+	# 4.5 would be the same view: 5 (384×216 world px) is nearer it than 4 (480×270).
+	assert_float(TtwZoom.start(Vector2(1920, 1080))).is_equal(5.0)
+	# TtwDisplay enlarges these 2 and 3 times: their view is the layout's.
+	assert_float(TtwZoom.start(Vector2(2560, 1440) / 2.0)).is_equal(3.0)
+	assert_float(TtwZoom.start(Vector2(3840, 2160) / 3.0)).is_equal(3.0)
+	# A view of another shape goes by its tighter side.
+	assert_float(TtwZoom.start(Vector2(1280, 1280))).is_equal(3.0)
+	assert_float(TtwZoom.start(Vector2(640, 360))).is_equal(2.0)
+
+func test_the_wheels_levels_follow_the_view() -> void:
+	var layout := Vector2(1280, 720)
+	var hd := Vector2(1920, 1080)
+	assert_array(Array(TtwZoom.levels_for(layout, TtwZoom.SKIRMISH_FAR, TtwZoom.SKIRMISH_NEAR))).is_equal([1.0, 2.0, 3.0, 4.0, 5.0])
+	assert_array(Array(TtwZoom.levels_for(layout, TtwZoom.LAB_FAR, TtwZoom.LAB_NEAR))).is_equal([0.5, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0])
+	# The same ends in world terms at 1080p.
+	assert_array(Array(TtwZoom.levels_for(hd, TtwZoom.SKIRMISH_FAR, TtwZoom.SKIRMISH_NEAR))).is_equal([2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0])
+	var lab := TtwZoom.levels_for(hd, TtwZoom.LAB_FAR, TtwZoom.LAB_NEAR)
+	assert_float(lab[0]).is_equal(1.0)
+	assert_float(lab[lab.size() - 1]).is_equal(12.0)

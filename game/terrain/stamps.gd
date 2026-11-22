@@ -23,6 +23,9 @@ const DROP := 0.06
 ## rounding of a cell centre's place, far less than a cell.
 const SLACK_PX := 0.05
 
+## The layers a press writes (TtwTerrain.mark_cells): the view uploads these.
+const PRESS_LAYERS := (1 << TtwTerrain.Layer.DEFORM) | (1 << TtwTerrain.Layer.LOOSE) | (1 << TtwTerrain.Layer.WEAR) | (1 << TtwTerrain.Layer.TRACK) | (1 << TtwTerrain.Layer.TRACK_ANGLE)
+
 ## Craters by cause: radius and depth (px).
 const CRATERS := {
 	&"shell": Vector2(6.0, 3.0),
@@ -133,7 +136,7 @@ static func press(t: TtwTerrain, center: Vector2, heading: float, length_px: flo
 	_spread_raise(t, berm if not berm.is_empty() else foot, to_berm)
 	_spread_loose(t, bow if not bow.is_empty() else foot, to_bow)
 	_spread_loose(t, spray if not spray.is_empty() else foot, to_spray)
-	t.mark_cells(Rect2i(lo, hi - lo + Vector2i.ONE))
+	t.mark_cells(Rect2i(lo, hi - lo + Vector2i.ONE), PRESS_LAYERS)
 	return carried
 
 ## Blows a crater of `cause` (CRATERS) at `center`: a bowl dug out whatever the

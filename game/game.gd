@@ -91,7 +91,8 @@ func _ready() -> void:
 				field.add_fuel(terrain.tile_of(body.position), TtwFireSystem.WRECK_FUEL)
 				field.ignite(terrain.tile_of(body.position)))
 	camera = Camera2D.new()
-	camera.zoom = Vector2(3, 3)
+	# The whole zoom that shows about what zoom 3 does at 1280×720 (TtwZoom).
+	camera.zoom = Vector2.ONE * TtwZoom.start(get_viewport().get_visible_rect().size)
 	world_root.add_child(camera)
 	(session.system(&"ai") as TtwAiSystem).placer = place_structure
 	if not load_path.is_empty():

@@ -1,14 +1,28 @@
 # itch.io page: Tiny Truck Wars
 
-**Title:** Tiny Truck Wars (tech demo)
+The page's fields, in the order the edit form asks for them.
 
-**Short description:** A tiny RTS where the mud fights back.
-
-**Classification:** Game, released as a demo. Genre: Strategy. Tags: rts,
-real-time-strategy, top-down, pixel-art, simulation, tanks, singleplayer,
-godot. Platforms: Windows, Linux, HTML5 (playable in the browser).
-
-**Pricing:** No payment (or "name your own price", minimum 0).
+| Field | Value |
+|---|---|
+| Title | Tiny Truck Wars |
+| Project URL | tiny-truck-wars |
+| Short description | A tiny RTS where the mud fights back. |
+| Classification | Games |
+| Kind of project | HTML (the web build plays in the page; the Windows and Linux zips are extra downloads) |
+| Release status | Prototype |
+| Pricing | $0 or donate (suggested: $0) |
+| Uploads | Pushed with butler (`ci/itch-push.sh`): channel `web` (tick "This file will be played in the browser"), `windows` (tick Windows), `linux` (tick Linux) |
+| Embed | Embed in page, manually set size 1280 × 720; Fullscreen button on; not mobile friendly; do not start on page load (about 40 MB to load); no scrollbars; SharedArrayBuffer off (the web build is single-threaded) |
+| Genre | Strategy |
+| Tags (max 10) | rts, real-time-strategy, top-down, pixel-art, tanks, simulation, sandbox, physics, godot, singleplayer |
+| AI generation disclosure | Yes: Graphics, Code |
+| Statement of AI usage | The vehicle and building sprites were generated from my descriptions and then picked and cleaned up by hand. Much of the code was written with an AI coding assistant, working from my design and my review. |
+| Custom noun | (blank) |
+| Community | Comments |
+| Visibility | Draft until the page has been looked over, then Public |
+| Cover image | `reports/itch/cover.png` (630 × 500) |
+| Gameplay video | the AI-vs-AI clip (`reports/itch/clip.mp4`), uploaded to YouTube first |
+| Screenshots | `reports/itch/shot-1-battle.png` … `shot-5-chain.png` (1920 × 1080) |
 
 ---
 

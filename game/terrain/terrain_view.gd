@@ -4,6 +4,12 @@ class_name TtwTerrainView extends Node2D
 ## textures are uploaded only when it is on screen and its cells changed (an
 ## off-screen chunk keeps its dirty mark until it comes into view).
 ##
+## The shader works out one colour per world pixel, so the chunks are drawn
+## into a buffer of one texel per world pixel (`buffer`, covering what the
+## camera shows) and the buffer is put on screen enlarged, nearest texel: at
+## zoom 3 that is a ninth of the pixels shaded for the same picture. Zoomed
+## out past one screen pixel per world pixel the buffer is the screen's size.
+##
 ## Level of detail is for drawing only (the simulation never uses it). Each
 ## chunk picks a tier from its distance to the centre of the view and from the
 ## camera's zoom, with hysteresis, and cross-fades over FADE_SECONDS.
@@ -21,6 +27,8 @@ const FADE_SECONDS := 0.25
 const UPLOADS_PER_REFRESH := 8
 ## Chunks this far (px) outside the view are still prepared.
 const MARGIN_PX := 32.0
+## Texels of the buffer kept around the view on each side.
+const BUFFER_PAD := 1
 
 enum Tier { FULL, MID, FAR }
 ## Debug overlays, SimCity style (the shader's `overlay`). TIERS tints chunks
@@ -54,8 +62,15 @@ var overlay: int = Overlay.NONE:
 		overlay = posmod(value, Overlay.size())
 		show_tiers = overlay == Overlay.TIERS
 		set_look(&"overlay", overlay if overlay != Overlay.TIERS else 0)
+## What the chunks are drawn into, and the sprite that shows it.
+var buffer: SubViewport
+var _screen: Sprite2D
+## The main canvas's transform the buffer was last placed for.
+var _placed_for := Transform2D(0.0, Vector2.ZERO, 0.0, Vector2.ZERO)
+var _placed_window := Vector2.ZERO
 var _chunks: Array[Chunk] = []
 var _uploads_this_frame: int = 0
+var _layers_this_frame: int = 0
 
 ## One chunk: its quad, material and layer textures.
 class Chunk extends Node2D:
@@ -79,6 +94,29 @@ func show_terrain(value: TtwTerrain) -> void:
 		return
 	if noise_texture == null:
 		noise_texture = ImageTexture.create_from_image(_make_noise())
+	if buffer == null:
+		buffer = SubViewport.new()
+		buffer.name = "Buffer"
+		buffer.world_2d = World2D.new()
+		buffer.disable_3d = true
+		# Opaque, like the window: drawn through a buffer with a transparent
+		# background, one pixel in ten came out a level off the picture drawn
+		# straight to the window (docs/ecs.md). The sprite shows only the
+		# part of it that is on the map.
+		buffer.transparent_bg = false
+		buffer.gui_disable_input = true
+		buffer.snap_2d_transforms_to_pixel = true
+		buffer.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
+		buffer.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		add_child(buffer)
+		_screen = Sprite2D.new()
+		_screen.name = "Screen"
+		_screen.centered = false
+		_screen.region_enabled = true
+		_screen.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		_screen.texture = buffer.get_texture()
+		add_child(_screen)
+	_placed_for = Transform2D(0.0, Vector2.ZERO, 0.0, Vector2.ZERO)
 	surface_texture = ImageTexture.create_from_image(terrain.surface_image())
 	elevation_texture = ImageTexture.create_from_image(terrain.elevation_image())
 	snow_base_texture = ImageTexture.create_from_image(terrain.snow_base_image())
@@ -115,9 +153,13 @@ func show_terrain(value: TtwTerrain) -> void:
 			shader_material.set_shader_parameter("noise_tex", noise_texture)
 			chunk.material = shader_material
 			chunk.material_ref = shader_material
-			add_child(chunk)
+			buffer.add_child(chunk)
 			_chunks.append(chunk)
 	_upload_all()
+
+## Every chunk, row by row.
+func chunks() -> Array[Chunk]:
+	return _chunks
 
 func chunk_at(coord: Vector2i) -> Chunk:
 	if terrain == null or coord.x < 0 or coord.y < 0 or coord.x >= terrain.chunks.x or coord.y >= terrain.chunks.y:
@@ -138,12 +180,71 @@ func look(parameter: StringName) -> Variant:
 func _process(delta: float) -> void:
 	refresh(delta)
 
+func _enter_tree() -> void:
+	RenderingServer.frame_pre_draw.connect(_before_draw)
+
+func _exit_tree() -> void:
+	RenderingServer.frame_pre_draw.disconnect(_before_draw)
+
+## A camera moved during the frame reaches the canvas after every _process:
+## the buffer is put where the view is now, just before it is drawn.
+func _before_draw() -> void:
+	if terrain != null and buffer != null:
+		_place_buffer()
+
+## Puts the buffer over what the camera shows: one texel per world pixel on
+## whole world pixels, or per screen pixel when zoomed out past that.
+func _place_buffer() -> void:
+	# Hidden, or not in the tree (no viewport, no canvas): nothing is drawn.
+	var showing := is_visible_in_tree()
+	var mode := SubViewport.UPDATE_ALWAYS if showing else SubViewport.UPDATE_DISABLED
+	if buffer.render_target_update_mode != mode:
+		buffer.render_target_update_mode = mode
+	if not showing:
+		return
+	var canvas := get_global_transform_with_canvas()
+	var window := get_viewport().get_visible_rect().size
+	if canvas == _placed_for and window == _placed_window:
+		return
+	_placed_for = canvas
+	_placed_window = window
+	var view := view_rect()
+	var texels_per_px := minf(absf(canvas.get_scale().x), 1.0)
+	var origin: Vector2
+	var size: Vector2i
+	if texels_per_px < 1.0:
+		# Zoomed out: the buffer is the screen, texel for pixel, with the
+		# canvas's own transform moved over by the pad.
+		var pad := Vector2(BUFFER_PAD, BUFFER_PAD)
+		origin = canvas.affine_inverse() * -pad
+		size = Vector2i((window + pad * 2.0).ceil())
+		buffer.canvas_transform = Transform2D(canvas.x, canvas.y, canvas.origin + pad)
+	else:
+		# One texel per world pixel, on whole world pixels.
+		var pad := Vector2(BUFFER_PAD, BUFFER_PAD)
+		origin = (view.position - pad).floor()
+		size = Vector2i((view.end + pad - origin).ceil())
+		buffer.canvas_transform = Transform2D(0.0, -origin)
+	size = size.maxi(2)
+	if buffer.size != size:
+		buffer.size = size
+	# The sprite shows the texels whose centres are on the map, as the chunks
+	# drawn straight to the screen would cover the pixels whose centres are.
+	var half := Vector2(0.5, 0.5)
+	var first := ((-origin) * texels_per_px - half).ceil().clamp(Vector2.ZERO, Vector2(size))
+	var end := ((terrain.size_px() - origin) * texels_per_px - half).ceil().clamp(Vector2.ZERO, Vector2(size))
+	_screen.visible = end.x > first.x and end.y > first.y
+	_screen.position = origin + first / texels_per_px
+	_screen.scale = Vector2.ONE / texels_per_px
+	_screen.region_rect = Rect2(first, end - first)
+
 ## Culls, picks tiers and uploads what changed. Called each frame; tests and
 ## probes call it directly to bring the view up to date before a draw.
 func refresh(delta: float = 0.0) -> void:
 	if terrain == null:
 		return
 	_uploads_this_frame = 0
+	_layers_this_frame = 0
 	if terrain.tiles_dirty:
 		surface_texture.update(terrain.surface_image())
 		elevation_texture.update(terrain.elevation_image())
@@ -156,6 +257,7 @@ func refresh(delta: float = 0.0) -> void:
 		slick_texture.update(water_sim.slick_image())
 		water_sim.slick_dirty = false
 		terrain.water_dirty = false
+	_place_buffer()
 	var view := view_rect()
 	var center := view.get_center()
 	var half_diagonal := maxf(view.size.length() * 0.5, 1.0)
@@ -226,15 +328,21 @@ func _upload_all() -> void:
 	for chunk in _chunks:
 		_upload(chunk)
 
+const LAYER_NAMES: Array[StringName] = [&"deform_tex", &"loose_tex", &"wet_tex", &"track_tex", &"angle_tex", &"wear_tex", &"scorch_tex", &"oil_tex", &"snow_gone_tex"]
+
+## Takes the chunk's changed layers to its textures (every layer the first time).
 func _upload(chunk: Chunk) -> void:
-	var names := ["deform_tex", "loose_tex", "wet_tex", "track_tex", "angle_tex", "wear_tex", "scorch_tex", "oil_tex", "snow_gone_tex"]
 	var first := chunk.textures.is_empty()
+	var changed := TtwTerrain.ALL_LAYERS if first else terrain.chunk_dirty_layers(chunk.coord)
 	for layer in TtwTerrain.LAYER_COUNT:
+		if (changed & (1 << layer)) == 0:
+			continue
+		_layers_this_frame += 1
 		var image := terrain.chunk_image(layer, chunk.coord)
 		if first:
 			var texture := ImageTexture.create_from_image(image)
 			chunk.textures.append(texture)
-			chunk.material_ref.set_shader_parameter(names[layer], texture)
+			chunk.material_ref.set_shader_parameter(LAYER_NAMES[layer], texture)
 		else:
 			chunk.textures[layer].update(image)
 	terrain.clean_chunk(chunk.coord)
@@ -243,6 +351,10 @@ func _upload(chunk: Chunk) -> void:
 ## Chunks uploaded by the last refresh().
 func uploads_last_refresh() -> int:
 	return _uploads_this_frame
+
+## Layer textures uploaded by the last refresh() (a chunk has LAYER_COUNT).
+func layers_last_refresh() -> int:
+	return _layers_this_frame
 
 static func _make_noise() -> Image:
 	var noise := FastNoiseLite.new()

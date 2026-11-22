@@ -95,6 +95,10 @@ and buildings stop it (TtwObstacleSystem).
   below.
 - Tiers: full near the view's centre, mid and far further out or zoomed out,
   with hysteresis and a cross-fade. Off-screen chunks are not drawn or uploaded.
+- The chunks are drawn into a buffer of one texel per world pixel over what
+  the camera shows, and the buffer is put on screen enlarged: the shader
+  runs once per world pixel, not once per screen pixel. A changed chunk
+  uploads only the layers that were written (`mark_cells(rect, layers)`).
 - Overlays (Mud Lab `O`): wear, wetness, relief, loose mud, tread prints, scorch,
   water depth, material, elevation, oil, snow depth, LOD tier.
 - Oil: a dark stain and a banded thin-film sheen; snow: soft drifts, blue
@@ -107,7 +111,7 @@ and buildings stop it (TtwObstacleSystem).
   splashes, rain, the spray of a blast falling back). Never read back.
 - `TtwDebris`: clods, droplets and wreckage with rough physics: arcs, bounces,
   sliding downhill, drifting downstream; droplets ripple where they land. At most
-  600.
+  600; those out of view are not drawn and move every fourth frame.
 - `TtwPuffs`: pooled dust and smoke emitters under a particle budget. Smoke is lit
   from the top left, and from below where there is fire.
 - `TtwFire` (flames, shimmer, firelight on the ground, lit smoke),
@@ -117,4 +121,5 @@ and buildings stop it (TtwObstacleSystem).
 
 - Mud Lab: `godot --path . res://tools/mud_lab.tscn` (keys in `tools/mud_lab.gd`).
 - Review pictures: `ci/run-probes.sh` writes `reports/render/*.png` (mud lab,
-  drive, water, fx); `perf_probe` writes `reports/render/perf.txt`.
+  drive, water, fx); `perf_probe` writes `reports/render/perf.txt`, and
+  `fps_probe` where a frame's time goes (`reports/render/fps.txt`).

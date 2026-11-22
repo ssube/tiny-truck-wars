@@ -58,7 +58,7 @@ func _run() -> void:
 	lab.camera.position = t.size_px() * 0.5
 	lab.camera.zoom = Vector2(0.75, 0.75)
 	await _shot("mud-lab-overview")
-	for chunk in lab.view.get_children():
+	for chunk in lab.view.chunks():
 		if chunk.visible and chunk.tier != TtwTerrainView.Tier.FAR:
 			problems.append("%s is not at the far tier when zoomed out" % chunk.name)
 			break
@@ -69,7 +69,7 @@ func _run() -> void:
 
 func _visible_dirty() -> int:
 	var count := 0
-	for chunk in lab.view.get_children():
+	for chunk in lab.view.chunks():
 		if chunk.visible and lab.terrain.is_chunk_dirty(chunk.coord):
 			count += 1
 	return count

@@ -7,13 +7,18 @@ class_name TtwShellsView extends Node2D
 const TRAIL_TICKS := 4.0
 
 var session: KitSession
+var _drawn_any := false
 
 func _init() -> void:
 	name = "Shells"
 	z_index = 6
 
 func _process(_delta: float) -> void:
-	queue_redraw()
+	# Nothing in flight, and the last picture already empty: leave it.
+	var flying := session != null and not session.view([TtwShell]).is_empty()
+	if flying or _drawn_any:
+		_drawn_any = flying
+		queue_redraw()
 
 func _draw() -> void:
 	if session == null:

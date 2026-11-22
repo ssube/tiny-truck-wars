@@ -18,6 +18,13 @@ const SAND_DRIFT := 0.004
 ## Share of the excess over the angle of repose that slumps per visit.
 const SLUMP := 0.35
 
+## The layers settling writes, as the bits a mark takes.
+const TRACK := 1 << TtwTerrain.Layer.TRACK
+const SCORCH := 1 << TtwTerrain.Layer.SCORCH
+const OIL := 1 << TtwTerrain.Layer.OIL
+const WET := 1 << TtwTerrain.Layer.WET
+const DEFORM := 1 << TtwTerrain.Layer.DEFORM
+
 var session: KitSession
 var _cursor: int = 0
 
@@ -60,6 +67,7 @@ func settle(terrain: TtwTerrain) -> void:
 	var oil := terrain.oil
 	var floods := TtwGround.water_of(session)
 	var marked := -1
+	var marked_layers := 0
 	# Sand drifts with a strong wind: from a cell to the next one downwind
 	# when that one stands lower (ruts fill in, berms blow away).
 	var weather := TtwWeatherSystem.of(session)
@@ -74,8 +82,9 @@ func settle(terrain: TtwTerrain) -> void:
 		if i < 0:
 			continue
 		var active := false
-		# Whether anything drawn changed (a cell under water, still soaked, did not).
-		var changed := false
+		# The layers whose picture changed (a cell under water, still soaked, has
+		# none): the view takes only those to the GPU.
+		var changed := 0
 		var value := track[i]
 		var x := i % width
 		var tile := (i / width / n) * tiles_wide + x / n
@@ -83,12 +92,12 @@ func settle(terrain: TtwTerrain) -> void:
 		if value > 0.0:
 			track[i] = value * pow(fade, TtwMaterials.PRINT_FADE[base]) if value > 0.03 else 0.0
 			active = track[i] > 0.0
-			changed = true
+			changed |= TRACK
 		value = scorch[i]
 		if value > 0.0:
 			scorch[i] = maxf(0.0, value - scorch_step)
 			active = active or scorch[i] > 0.0
-			changed = true
+			changed |= SCORCH
 		value = wet[i]
 		# Ground under water stays soaked and has nothing to settle: it leaves
 		# the queue, and TtwWater queues it again when the water goes.
@@ -97,16 +106,16 @@ func settle(terrain: TtwTerrain) -> void:
 		if submerged and oil[i] > 0.0 and floods != null and floods.is_wet(tile):
 			floods.add_slick(tile, oil[i])
 			oil[i] = 0.0
-			changed = true
+			changed |= OIL
 		if value > 0.0:
 			if submerged:
 				if value != 1.0:
 					wet[i] = 1.0
-					changed = true
+					changed |= WET
 			else:
 				wet[i] = maxf(0.0, value - dry_step * TtwMaterials.DRY_RATE[base])
 				active = active or wet[i] > 0.0
-				changed = true
+				changed |= WET
 		var here := deform[i]
 		if drift > 0.0 and base == TtwMaterials.SAND and not submerged:
 			var j := i + downwind
@@ -121,14 +130,14 @@ func settle(terrain: TtwTerrain) -> void:
 					stale[tile] = 1
 					stale[(j / width / n) * tiles_wide + (j % width) / n] = 1
 					active = true
-					changed = true
+					changed |= DEFORM
 		if here < 0.0:
 			var rebound: float = TtwMaterials.REBOUND[base]
 			if rebound > 0.0 and wear[i] < 1.0 and not submerged:
 				deform[i] = minf(0.0, here * (1.0 - rebound * dt) + 0.002)
 				here = deform[i]
 				active = active or here < 0.0
-				changed = true
+				changed |= DEFORM
 				stale[tile] = 1
 		# slump() moves ground exactly when the cell stands too far above one of
 		# its neighbours; that is tested here so that it is called only then.
@@ -140,14 +149,23 @@ func settle(terrain: TtwTerrain) -> void:
 				or (i >= width and here - deform[i - width] - repose > 0.01)):
 			slump(terrain, i)
 			active = true
-			changed = true
+			changed |= DEFORM
 			stale[tile] = 1
-		if changed and tile != marked:
-			marked = tile
-			terrain.mark_tile_quiet(x / n, i / width / n)
+		# One mark per run of visits to the same tile, with every layer the run
+		# changed: made when the run ends.
+		if changed != 0:
+			if tile == marked:
+				marked_layers |= changed
+			else:
+				if marked >= 0:
+					terrain.mark_tile_quiet(marked % tiles_wide, marked / tiles_wide, marked_layers)
+				marked = tile
+				marked_layers = changed
 		if not active:
 			terrain.unqueue_settle(i)
 			queue[k] = -1
+	if marked >= 0:
+		terrain.mark_tile_quiet(marked % tiles_wide, marked / tiles_wide, marked_layers)
 	_cursor = end
 	if _cursor >= count:
 		# A full sweep done: drop the settled cells.
@@ -181,7 +199,7 @@ static func slump(terrain: TtwTerrain, i: int) -> bool:
 			deform[i] -= amount
 			deform[j] += amount
 			terrain.queue_settle(j)
-			terrain.mark_cell_quiet(j)
+			terrain.mark_cell_quiet(j, DEFORM)
 			terrain.mark_relief_quiet(j)
 			moved = true
 	return moved

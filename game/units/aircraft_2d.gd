@@ -21,6 +21,8 @@ var sprite: Sprite2D
 var _textures: Array[Texture2D] = []
 var _facing: int = -1
 var _spin: float = 0.0
+## The altitude, rotor angle and cruise height last drawn.
+var _drawn := Vector3(NAN, NAN, NAN)
 
 func kit_components() -> Array[Component]:
 	return [TtwAircraft.new(), KitSlots.take(flight, TtwFlight), KitSlots.take(fuel, TtwFuel), KitSlots.take(condition, TtwCondition)]
@@ -53,7 +55,11 @@ func _process(delta: float) -> void:
 	modulate = Color(0.5, 0.46, 0.44) if wrecked else Color.WHITE
 	var running := not wrecked and (f.airborne() or entity.has_component(TtwMoveOrder))
 	_spin = fposmod(_spin + delta * (30.0 if running else 0.0), TAU)
-	queue_redraw()
+	# Drawn again only when the shadow or the rotor would differ.
+	var drawn := Vector3(f.altitude, _spin, f.cruise_px)
+	if drawn != _drawn:
+		_drawn = drawn
+		queue_redraw()
 
 func _draw() -> void:
 	if entity == null or not is_instance_valid(entity):

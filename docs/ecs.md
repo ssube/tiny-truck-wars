@@ -131,6 +131,26 @@ func process(_map, _components, _delta) -> void:
   already existed did not move `cache_version`**, so a view built earlier
   missed it until some other change. `World._add_entity_to_archetype` now
   bumps it (`test_session.gd` covers it).
+- **A gun's scan is staggered by its entity's object id**
+  (`TtwGunSystem`: `(tick + entity.get_instance_id()) % SCAN_TICKS`), and
+  object ids depend on every object made before it. A change that makes
+  one more node per unit (a shadow, a buffer) moves when guns look for
+  targets: the game is still the same from run to run, but a different
+  one, and its hashes cannot be compared with the old code's. To check a
+  change that should not touch the simulation, hash both with the stagger
+  taken from `hash(entity.alias)`.
+- **Headless, a texture cannot be read back after an update.** After
+  `ImageTexture.update`, `get_image()` there did not return the new image
+  for any layer that had changed: what the view uploaded cannot be checked
+  that way in a test. Test what was marked for upload instead
+  (`test_terrain_view.gd`).
+- **A probe that names `TtwSkirmish` as a type and quits without making
+  one leaves 33 scripts alive at exit** (`run-probe.sh` fails on that).
+  `fps_probe` holds its skirmish as a `TtwGame`.
+- **Render probes count frames, and a frame is as long as the machine
+  makes it.** Their pictures were set up at about four ticks a frame
+  (llvmpipe); a faster renderer shows earlier moments of the game. Each
+  probe's `_frames` also waits four ticks for each frame asked for.
 - **Loading in the background** (`ResourceLoader.load_threaded_*`), which this
   game does not do: in Godot 4.7.2 a script first compiled on the loader
   thread leaks an engine object at exit for each `preload` it has to read,
@@ -263,6 +283,133 @@ off they read 1094 to 1211 µs and 2338 to 2443 µs, with it on 1104 to 1245
 and 2364 to 2574 in the same sittings. A reading of 0.95 and 2.16 ms against
 1.13 and 2.46 is the machine, not the pushes.
 
+### Frames (perf/fps)
+
+`tests/render/fps_probe.tscn` splits a frame into the simulation's ticks, the
+scripts' `_process`, the canvas `_draw` callbacks, the renderer and the rest,
+with the renderer's own CPU and GPU clocks for each viewport. Three scenes at
+1280×720, zoom 3: the stress scene of the perf probe (100 units on 128×128
+tiles), the river skirmish with the computer on both sides after a minute of
+play (14 units; the minute is played once headless and kept as a save:
+`KIT_FPS_SAVE`), and the same map with nobody playing.
+
+```sh
+./run-probe.sh res://tests/render/fps_probe.tscn                       # llvmpipe
+DISPLAY=:0 godot --path . --audio-driver Dummy --resolution 1280x720 \
+    --disable-vsync res://tests/render/fps_probe.tscn                  # the GPU
+```
+
+Where a frame went before, on a Radeon 780M with vsync off (ms per frame):
+
+| Scene | fps | ticks | `_process` | `_draw` | renderer | GPU | ticks a frame |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| stress | 45.5 | 12.3 (9.3 a tick) | 5.8 (3.1 chunk uploads) | 2.3 | 1.4 | 12.9 | 1.32 |
+| skirmish | 195 | 1.0 (3.3 a tick) | 0.9 | 0.4 | 2.6 | 4.3 | 0.31 |
+| idle | 274 | 0.5 (2.1 a tick) | 0.3 | 0.3 | 2.4 | 3.2 | 0.22 |
+
+The skirmish was bound by the GPU (its renderer column is mostly the swap
+waiting for it): the terrain shader, run for every screen pixel. The stress
+scene was bound by the CPU, and little more than half of that was the
+simulation: a frame took 22 ms, so 1.3 ticks had to run in each, and every
+millisecond outside the ticks cost about 2.3 in the frame
+(`frame = rest / (1 - 0.06 × tick ms)`). At a tick of 16.7 ms that has no
+answer: the engine runs its limit of 8 ticks a frame and then the game slows
+down (seen here with another job on the machine: 7 fps, 91% of game speed).
+
+Frames per second after each change, each measured on that commit (the
+stress scene moves 10% between runs, the others 5%):
+
+| After | stress | skirmish | idle |
+| --- | ---: | ---: | ---: |
+| before | 45 to 47 | 195 to 200 | 274 to 282 |
+| terrain: shaded once per world pixel | 35 to 38 | 708 | 1154 |
+| units: drawn again only when they look different | 43.5 | 732 | 1178 |
+| terrain: a chunk uploads only the layers that changed | 44.9 | 835 | 1231 |
+| fx: bits out of view not drawn, moved less often | 94 to 117 | 863 to 947 | 1185 to 1298 |
+
+On llvmpipe (`run-probe.sh`), before and after all of it: stress 6.5 to 21.4
+fps (86% to 100% of game speed), skirmish 16.2 to 65.0, idle 17.3 to 68.8.
+The perf probe as it was first run on the Radeon (vsync on): 41.9 to 55.8 fps.
+
+What each was:
+
+- **The ground, per world pixel.** The terrain shader takes one sample per
+  world pixel (`floor(local_px) + 0.5`), and at zoom 3 ran for each of the
+  nine screen pixels showing it. `TtwTerrainView` draws its chunks into a
+  `SubViewport` of one texel per world pixel over what the camera shows and
+  puts that on screen enlarged, nearest texel: GPU time 12.9 to 2.5 ms a
+  frame in the stress scene, 4.3 to 0.7 in the skirmish. Zoomed out past one
+  screen pixel per world pixel the buffer is the screen, texel for pixel.
+  At whole zooms the picture is the same pixel for pixel. On its own this
+  left the stress scene slower (35 to 38 fps): that frame was never waiting
+  for the GPU, and the CPU's side of it read about 2 ms more on that commit
+  (ticks 9.3 to 10.0 ms, chunk uploads 3.1 to 3.5, the renderer 1.1 to 1.4),
+  which at 1.3 to 1.7 ticks a frame is paid more than twice over. Why the
+  ticks read slower there was not found: headless on fixed ticks they cost
+  the same before and after (9.7 ms).
+- **Units.** A vehicle's shadow was a `_draw` callback run every frame; it is
+  a `Polygon2D` turned with the heading. Material parameters are set when
+  they change. `_draw` callbacks 2.3 to 1.6 ms in the stress scene.
+- **Chunk layers.** A changed chunk uploaded all nine layer textures, at
+  about 65 µs each (about 40 to cut the rows out, the rest to hand them
+  over). A mark now carries the layers written
+  (`TtwTerrain.mark_cells(rect, layers)`): a press writes five, a settling
+  visit most often one. Layer textures uploaded per frame 47 to 28 in the
+  stress scene (3.1 to 2.0 ms), 6.3 to 0.2 in the skirmish, whose changes
+  are nearly all the river banks' `deform`.
+- **Thrown bits.** `TtwDebris` drew every bit on the map each frame, each
+  its own draw call (three sheets and untextured shadows, interleaved, so
+  nothing batched), and moved every one: about 2.5 ms of `_process`, 1.2 of
+  `_draw` and 1.0 in the renderer in the stress scene, where 100 vehicles
+  keep hundreds alive and few are in view. Bits outside the view (and a
+  margin) are now skipped by the draw and move every fourth frame by four
+  frames' time; all three sheets and the shadows come from one texture.
+  715 draw calls to 40.
+
+Where a frame goes now (Radeon, ms per frame): stress 8.5 = ticks 4.9 (half
+a tick a frame, 9.7 each) + `_process` 2.2 (uploads 0.9, vehicles 0.9) +
+`_draw` 0.5 + renderer 0.7, GPU 2.1; skirmish 1.2 = ticks 0.2 + `_process`
+0.2 + `_draw` 0.1 + renderer 0.5, GPU 0.7.
+
+Checked like the ground: every per-tick hash of the stress scene on fixed
+ticks (terrain layers, water, settling and path queues, every unit) is as it
+was, once the gun scan's stagger is pinned (see Traps).
+
+**Whole screen pixels.** The project stretched its 1280×720 layout by any
+factor (1.5 at 1920×1080), so at zoom 3 a world pixel was 4.5 screen pixels
+and the buffer's texels came out 4 and 5 pixels wide by turns. The stretch
+is now by whole factors (`window/stretch/scale_mode="integer"`), and the
+`TtwDisplay` autoload (`game/display.gd`) sets the layout's size to the
+window's over that factor: the engine's integer mode alone leaves what the
+rounding frees as black bars (a 1280×720 picture in the middle of a
+1920×1080 window). So 1080p is factor 1 with a 1920×1080 view (it sees 2.25
+times the ground it did, and the HUD, title and menu are two thirds the
+size), 1440p is factor 2 with a 1280×720 view, 4K factor 3. Measured at
+1920×1080 on llvmpipe: every run of equal ground pixels is 3 wide or a
+multiple (before: 4 and 5 mixed); at 2560×1440, 6. A skirmish clamps its
+camera to the map as it starts and on zooming out, as panning did: the
+wider view at 1080p started hanging 128 px over the map's edge.
+
+**The same stretch of world on every screen.** At factor 1 a 1920×1080 view
+at zoom 3 shows 640×360 world px where 1280×720 shows 427×240. A game now
+starts at the whole zoom that shows the nearest to the layout's zoom 3
+(`TtwZoom.start`: 5 at 1080p, 384×216 world px, which is nearer 240 high
+than zoom 4's 270; 3 at 1440p and 4K, enlarged 2 and 3 times), and the
+wheel's ends are the whole zooms nearest the layout's 1 and 5 (2 and 8 at
+1080p; the Mud Lab's 0.5 and 8 become 1 and 12): `TtwZoom.levels_for`, given
+to the wheel's `TtwZoom` for the window as it is at each notch. Probes and
+tests that set a zoom keep it.
+
+Frames per second in a 1920×1080 window on the Radeon, vsync off, each at
+the zoom a game starts with there:
+
+| | stress | skirmish | idle |
+| --- | ---: | ---: | ---: |
+| before (stretched 1.5, zoom 3; GPU 13.8, 9.6 and 7.3 ms a frame) | 46.5 | 57.8 | 118.6 |
+| now (factor 1, zoom 5; GPU 2.0, 0.7 and 0.5 ms a frame) | 85 to 96 | 832 to 838 | 1048 to 1114 |
+
+(1280×720, now: 106 to 125, 906 to 914, 1270 to 1301.)
+
 ### What a packed array costs to reach
 
 200,000 accesses, Godot 4.7.2:
@@ -306,6 +453,30 @@ A float that must match the old arithmetic exactly is kept in a
   until two touch, but its signals arrive after the step: an overlap made
   this tick by the drive would be parted on the next, which is not what the
   pass does now (two on one spot are parted within the tick). Not done.
+- **Settling: a mark for each new layer a tile's visits change.** The first
+  cut of the layer marks called `mark_tile_quiet` again whenever a visit to
+  the same tile changed a layer not yet marked: settle 1990 to 2210 µs.
+  One mark per run of visits to a tile, with the layers gathered, is 2060
+  (the marks are about 200 µs of settle either way).
+- **A buffer with alpha for the ground.** Drawn through a render target
+  with a transparent background, one pixel in ten came out one level off
+  the picture drawn straight to the window; through an opaque one, none.
+  (The engine appears to give an opaque target more bits per colour.) The
+  buffer is opaque and the sprite showing it is cut to the map instead.
+- **Driver threading** (`mesa_glthread`, `GALLIUM_THREAD=0`): 100 to 107 fps
+  on the stress scene either way. Inside the spread.
+- **Not done: skipping a vehicle's `_process` out of view.** 100 vehicles
+  cost 0.9 ms a frame, in view or not. A `VisibleOnScreenEnabler2D` is
+  the engine's way, but it hears of the screen from the renderer, a frame
+  late (not tried: a unit just built would have to be shown right on its
+  first frame some other way). A test against the view's rect in each
+  `_process` would do it, for a tenth of the stress scene's frame and
+  nothing a skirmish can show.
+- **Not done: cheaper rows for a chunk's image.** 40 µs a layer is 144
+  slices and appends. One slice of the whole band and `Image.get_region`
+  would copy the map's full width three times (590 KB a layer on a
+  128-tile map); not measured, and `ImageTexture` has no update of part of
+  a texture.
 - **Not tried: a press's cell test in doubles, summed per row and column.**
   The test is float32 (`Vector2`), and a cell exactly on an edge (a berm
   5 px from an axis-aligned patch) can fall on the other side in doubles, so
@@ -330,5 +501,15 @@ A float that must match the old arithmetic exactly is kept in a
   `has_component`. Its matches' columns cannot be used as in tracks, because
   it adds and removes components (stalled, flooded, wrecked) mid-loop; a row
   per vehicle rebuilt when `world.cache_version` moves would save about 0.3 ms.
-- **Chunk uploads** are outside the systems: `chunk_image` is 293 µs per
-  chunk (7 layers, a slice and an append per row), up to 8 chunks a frame.
+- **Chunk uploads** are outside the systems: about 65 µs a layer texture
+  (`chunk_image` about 40, a slice and an append per row), for the layers
+  that changed, up to 8 chunks a frame: 0.9 ms a frame in the stress scene.
+- **The frame outside the ticks**, stress scene: vehicles' `_process` 0.9 ms
+  (9 µs each, in view or not), and 2 ms of GPU for the terrain buffer's
+  105,000 world pixels (the shader itself: march, shadow, splat). Neither
+  bounds the frame now; the ticks do.
+- **Ticks per frame.** Above 16.7 ms a tick the engine runs up to 8 a frame
+  (`physics/common/max_physics_steps_per_frame`) and the frame rate falls
+  to single figures before the game slows. A lower limit would trade game
+  speed for frame rate on a machine that slow: a choice about the game,
+  not made here.

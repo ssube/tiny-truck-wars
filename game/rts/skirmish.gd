@@ -20,7 +20,6 @@ func _ready() -> void:
 	map_kind = &"skirmish"
 	_read_arguments()
 	super()
-	camera.zoom = Vector2(3, 3)
 	camera.make_current()
 	for team in ai_teams:
 		if session.resolve("ai:%d" % team) == null:
@@ -28,6 +27,7 @@ func _ready() -> void:
 	commander = TtwCommander.new()
 	commander.game = self
 	world_root.add_child(commander)
+	commander.clamp_camera()
 	hud = TtwHud.new()
 	hud.game = self
 	hud.commander = commander

@@ -23,6 +23,13 @@ const TILT_K := 0.6
 var entity: Entity
 var sprite: Sprite2D
 var reflection: Sprite2D
+## The contact shadow: an ellipse under the hull, turned with the heading.
+var shadow: Polygon2D
+var _shadow_size := Vector2.ZERO
+## What the sprite's material was last given (sink, grime, in water, wet): a
+## parameter is set only when it changes.
+var _shown := PackedFloat64Array([NAN, NAN, NAN, NAN])
+const SHOWN_NAMES: Array[StringName] = [&"sink_rows", &"grime", &"in_water", &"wet"]
 var _textures: Array[Texture2D] = []
 var _bottoms: PackedFloat32Array = []
 var _heights: PackedFloat32Array = []
@@ -55,6 +62,15 @@ func _ready() -> void:
 	mirror.shader = REFLECTION_SHADER
 	reflection.material = mirror
 	reflection.visible = false
+	shadow = Polygon2D.new()
+	shadow.name = "Shadow"
+	var ellipse := PackedVector2Array()
+	for k in 16:
+		ellipse.append(Vector2.from_angle(TAU * k / 16.0))
+	shadow.polygon = ellipse
+	shadow.color = Color(0, 0, 0, 0.22)
+	shadow.visible = false
+	add_child(shadow)
 	add_child(reflection)
 	add_child(sprite)
 	_face(0)
@@ -82,10 +98,10 @@ func _process(_delta: float) -> void:
 	_face(facing_of(d.heading))
 	var sink_rows := roundf(v.sink * TILT_K)
 	sprite.position = sprite_offset + Vector2(0, sink_rows)
-	sprite.material.set_shader_parameter("sink_rows", sink_rows)
-	sprite.material.set_shader_parameter("grime", v.grime)
-	sprite.material.set_shader_parameter("in_water", 1.0 if v.water_depth > 0.0 else 0.0)
-	sprite.material.set_shader_parameter("wet", v.hull_wet)
+	_show(0, sink_rows)
+	_show(1, v.grime)
+	_show(2, 1.0 if v.water_depth > 0.0 else 0.0)
+	_show(3, v.hull_wet)
 	# Mirrored about the waterline (the sprite's bottom less what is under water).
 	reflection.visible = v.water_depth > 0.5
 	if reflection.visible:
@@ -94,19 +110,18 @@ func _process(_delta: float) -> void:
 		reflection.position = Vector2(sprite.position.x, 2.0 * waterline - sprite.position.y)
 		reflection.material.set_shader_parameter("strength", clampf(v.water_depth / 3.0, 0.0, 1.0))
 	modulate = Color(0.55, 0.5, 0.48) if entity.has_component(TtwWrecked) else Color.WHITE
-	queue_redraw()
-
-func _draw() -> void:
-	if entity == null or not is_instance_valid(entity):
-		return
-	var d: TtwDrive = entity.get_component(TtwDrive)
-	var v: TtwVehicle = entity.get_component(TtwVehicle)
-	var along := Vector2.from_angle(d.heading)
-	var side := along.orthogonal()
+	# The shadow is a node, not a _draw: turning it costs a transform, where
+	# drawing it again every frame cost a call into the script per vehicle.
 	var half_length := maxf(v.tread_length_px * 0.5, absf(v.axles_px[0]) + 3.0 if not v.axles_px.is_empty() else 8.0)
-	var half_width := v.gauge_px * 0.5 + v.contact_width_px * 0.5
-	var points := PackedVector2Array()
-	for k in 16:
-		var a := TAU * k / 16.0
-		points.append(along * cos(a) * half_length + side * sin(a) * half_width)
-	draw_colored_polygon(points, Color(0, 0, 0, 0.22))
+	var size := Vector2(half_length, v.gauge_px * 0.5 + v.contact_width_px * 0.5)
+	if size != _shadow_size:
+		_shadow_size = size
+		shadow.scale = size
+	if shadow.rotation != d.heading:
+		shadow.rotation = d.heading
+	shadow.visible = true
+
+func _show(index: int, value: float) -> void:
+	if _shown[index] != value:
+		_shown[index] = value
+		sprite.material.set_shader_parameter(SHOWN_NAMES[index], value)

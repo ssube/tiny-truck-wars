@@ -7,6 +7,11 @@ class_name TtwDebris extends Node2D
 ## in the game reads them, so they step on the frame clock.
 ##
 ## At most MAX_BITS live; past that the oldest go first.
+##
+## Only the bits near what the camera shows are drawn, and only those move
+## every frame: the rest move every FAR_EVERY-th frame, by that many frames'
+## time at once. All the sheets are drawn from one texture (`_atlas`), so a
+## frame's bits and their shadows go to the GPU together.
 
 enum Kind { CLOD, DROPLET, DEBRIS }
 
@@ -28,6 +33,15 @@ const FLOAT_SECONDS := 2.5
 ## How quickly the current takes over a floating bit (1/s).
 const CURRENT_GRIP := 2.5
 const TILT_K := 0.6
+## Bits this far (px) outside the view still count as in it: a bit is drawn up
+## the screen by its height, and the camera may have moved since the canvas
+## last heard of it.
+const VIEW_MARGIN_PX := 64.0
+## Bits out of view move once in this many frames.
+const FAR_EVERY := 4
+## The longest step (s) a bit takes at once, in view and out of it.
+const NEAR_STEP := 1.0 / 20.0
+const FAR_STEP := 1.0 / 8.0
 
 var terrain: TtwTerrain
 var water_fx: TtwWaterFx
@@ -42,6 +56,35 @@ var frames: PackedInt32Array = []
 ## Seconds since it landed (negative while in the air).
 var landed: PackedFloat32Array = []
 var _rng := RandomNumberGenerator.new()
+## The last draw had bits in it.
+var _drawn_any := false
+## Every sheet, one under the other with a clear row between, and a white
+## block under them for the shadows.
+var _atlas: ImageTexture
+var _white: Rect2
+var _frame: int = 0
+
+func _ready() -> void:
+	var row := FRAME_PX + 1
+	var image := Image.create_empty(FRAMES * FRAME_PX, row * SHEETS.size() + 2, false, Image.FORMAT_RGBA8)
+	for k in SHEETS.size():
+		var sheet: Image = SHEETS[k].get_image()
+		sheet.convert(Image.FORMAT_RGBA8)
+		image.blit_rect(sheet, Rect2i(0, 0, FRAMES * FRAME_PX, FRAME_PX), Vector2i(0, k * row))
+	_white = Rect2(0, row * SHEETS.size(), 2, 2)
+	image.fill_rect(Rect2i(_white), Color.WHITE)
+	_atlas = ImageTexture.create_from_image(image)
+
+## What the camera shows, grown by VIEW_MARGIN_PX (everything, without one).
+func view_rect() -> Rect2:
+	var viewport := get_viewport()
+	if viewport == null:
+		return Rect2(-1.0e9, -1.0e9, 2.0e9, 2.0e9)
+	var inverse := get_global_transform_with_canvas().affine_inverse()
+	var screen := viewport.get_visible_rect()
+	var a := inverse * screen.position
+	var b := inverse * screen.end
+	return Rect2(a.min(b), (b - a).abs()).grow(VIEW_MARGIN_PX)
 
 func count() -> int:
 	return position3.size()
@@ -62,7 +105,30 @@ func throw(kind: int, at: Vector3, direction: Vector2, speed: float, spread: flo
 		landed.append(-1.0)
 
 func _process(delta: float) -> void:
-	step(minf(delta, 1.0 / 20.0))
+	# With no bits there is nothing to move, and nothing to draw once the
+	# last of them has been cleared.
+	if terrain == null or (position3.is_empty() and not _drawn_any):
+		return
+	_frame += 1
+	var near := view_rect()
+	var near_dt := minf(delta, NEAR_STEP)
+	var far_dt := minf(delta * FAR_EVERY, FAR_STEP)
+	var k := 0
+	while k < position3.size():
+		var p := position3[k]
+		var dt := near_dt
+		if not near.has_point(Vector2(p.x, p.y)):
+			# Out of view: its turn comes every FAR_EVERY-th frame. (A bit removed
+			# ahead of it shifts whose turn it is: one may wait a frame more or less.)
+			if (k + _frame) % FAR_EVERY != 0:
+				k += 1
+				continue
+			dt = far_dt
+		if _move(k, dt):
+			k += 1
+		else:
+			_remove(k)
+	_drawn_any = not position3.is_empty()
 	queue_redraw()
 
 ## Moves every bit on by `dt` seconds.
@@ -140,15 +206,21 @@ func _remove(k: int) -> void:
 func _draw() -> void:
 	if terrain == null:
 		return
+	var near := view_rect()
+	var size := Vector2(FRAME_PX, FRAME_PX)
+	var row := FRAME_PX + 1
 	for k in position3.size():
 		var p := position3[k]
-		var ground := terrain.relief_at(Vector2(p.x, p.y))
+		var at := Vector2(p.x, p.y)
+		if not near.has_point(at):
+			continue
+		var ground := terrain.relief_at(at)
 		var screen := Vector2(p.x, p.y - (p.z + ground) * TILT_K).round()
-		var region := Rect2(frames[k] * FRAME_PX, 0, FRAME_PX, FRAME_PX)
+		var kind := kinds[k]
 		var alpha := 1.0
-		if landed[k] > 0.0 and kinds[k] != Kind.DROPLET:
-			var life: float = FLOAT_SECONDS if terrain.water_depth_at(Vector2(p.x, p.y)) > 0.0 else REST_SECONDS[kinds[k]]
+		if landed[k] > 0.0 and kind != Kind.DROPLET:
+			var life: float = FLOAT_SECONDS if terrain.water_depth_at(at) > 0.0 else REST_SECONDS[kind]
 			alpha = clampf((life - landed[k]) / 1.0, 0.0, 1.0)
 		if p.z > 0.5:
-			draw_rect(Rect2(Vector2(p.x, p.y - ground * TILT_K).round() - Vector2(1, 0), Vector2(2, 1)), Color(0, 0, 0, 0.25))
-		draw_texture_rect_region(SHEETS[kinds[k]], Rect2(screen - Vector2(FRAME_PX, FRAME_PX) * 0.5, Vector2(FRAME_PX, FRAME_PX)), region, Color(1, 1, 1, alpha))
+			draw_texture_rect_region(_atlas, Rect2(Vector2(p.x, p.y - ground * TILT_K).round() - Vector2(1, 0), Vector2(2, 1)), _white, Color(0, 0, 0, 0.25))
+		draw_texture_rect_region(_atlas, Rect2(screen - size * 0.5, size), Rect2(frames[k] * FRAME_PX, kind * row, FRAME_PX, FRAME_PX), Color(1, 1, 1, alpha))

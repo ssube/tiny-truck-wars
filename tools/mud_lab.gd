@@ -43,7 +43,7 @@ var _paths: TtwPathView
 ## The camera keeps the selected vehicle in view until WASD pans away.
 var following: bool = true
 const FOLLOW_RATE := 6.0
-var _zoom := TtwZoom.new(PackedFloat32Array([0.5, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]))
+var _zoom := TtwZoom.new(TtwZoom.levels_for(TtwZoom.LAYOUT, TtwZoom.LAB_FAR, TtwZoom.LAB_NEAR))
 
 func _ready() -> void:
 	game = TtwGame.new()
@@ -169,6 +169,7 @@ func _over_ui() -> bool:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
+		_zoom.levels = TtwZoom.levels_for(get_viewport().get_visible_rect().size, TtwZoom.LAB_FAR, TtwZoom.LAB_NEAR)
 		var zoom := _zoom.apply(event, camera.zoom.x)
 		if not is_equal_approx(zoom, camera.zoom.x):
 			# Toward the cursor: that lets go of the vehicle, as panning does.
