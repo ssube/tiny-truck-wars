@@ -38,8 +38,10 @@ func _ready() -> void:
 	var load_button := _button(column, "load", "Load saved game", load_saved)
 	load_button.disabled = not FileAccess.file_exists(TtwSkirmish.QUICK_SAVE)
 	_button(column, "mud_lab", "Mud Lab (ground sandbox)", open_mud_lab)
-	column.add_child(HSeparator.new())
-	_button(column, "quit", "Quit", func(): get_tree().quit())
+	# A browser tab is closed by the browser.
+	if not OS.has_feature("web"):
+		column.add_child(HSeparator.new())
+		_button(column, "quit", "Quit", func(): get_tree().quit())
 
 func _button(parent: Control, id: String, text: String, pressed: Callable) -> Button:
 	var button := Button.new()

@@ -1,7 +1,7 @@
 name: Release
 
 # A tag v<version> (matching application/config/version in project.godot)
-# runs the tests, exports Linux and Windows builds, and publishes them as a
+# runs the tests, exports Linux, Windows and Web builds, and publishes them as a
 # GitHub release with the changelog's section for that version.
 on:
   push:
@@ -20,6 +20,9 @@ jobs:
   build:
     needs: tests
     runs-on: ubuntu-24.04
+    env:
+      # Whether to push to itch.io too (a step's if cannot read secrets).
+      HAS_BUTLER: ${{ secrets.BUTLER_API_KEY != '' }}
     steps:
       - uses: actions/checkout@v4
       - name: The tag matches the project's version
@@ -34,32 +37,12 @@ jobs:
           templates: "true"
       - name: Import assets
         run: ci/import.sh
-      - name: Export
-        run: |
-          set -euo pipefail
-          mkdir -p builds/linux builds/windows
-          godot --headless --path . --export-release Linux builds/linux/tiny-truck-wars.x86_64
-          godot --headless --path . --export-release Windows builds/windows/tiny-truck-wars.exe
-          test -s builds/linux/tiny-truck-wars.x86_64
-          test -s builds/windows/tiny-truck-wars.exe
+      - name: Export and pack
+        run: ci/package.sh
       - name: Smoke test the Linux build
         run: |
           timeout 60 ./builds/linux/tiny-truck-wars.x86_64 --headless --audio-driver Dummy --quit-after 120
           timeout 120 ./builds/linux/tiny-truck-wars.x86_64 --headless --audio-driver Dummy --quit-after 600 -- --map=river
-      - name: Package
-        run: |
-          set -euo pipefail
-          for platform in linux windows; do
-            dir="dist/tiny-truck-wars-$VERSION-$platform"
-            mkdir -p "$dir"
-            cp builds/$platform/* "$dir/"
-            cp README.md CREDITS.md CHANGELOG.md LICENSE "$dir/"
-            cp -r licenses "$dir/licenses"
-            rm -f "$dir/licenses/.gdignore"
-            (cd dist && zip -qr "tiny-truck-wars-$VERSION-$platform.zip" "tiny-truck-wars-$VERSION-$platform")
-          done
-          awk -v v="## $VERSION" '$0 == v {on = 1; next} /^## / && on {exit} on' CHANGELOG.md > dist/notes.md
-          test -s dist/notes.md
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -68,4 +51,17 @@ jobs:
             --title "Tiny Truck Wars $VERSION" \
             --notes-file dist/notes.md \
             dist/tiny-truck-wars-$VERSION-linux.zip \
-            dist/tiny-truck-wars-$VERSION-windows.zip
+            dist/tiny-truck-wars-$VERSION-windows.zip \
+            dist/tiny-truck-wars-$VERSION-web.zip
+      - name: Push to itch.io (when BUTLER_API_KEY is set)
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+          ITCH_TARGET: ${{ vars.ITCH_TARGET }}
+        if: ${{ env.HAS_BUTLER == 'true' }}
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
+          unzip -q -o /tmp/butler.zip -d "$HOME/butler"
+          chmod +x "$HOME/butler/butler"
+          export PATH="$HOME/butler:$PATH"
+          ITCH_TARGET=${ITCH_TARGET:-ssube/tiny-truck-wars} ci/itch-push.sh

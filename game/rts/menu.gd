@@ -35,7 +35,8 @@ func _ready() -> void:
 	for map in TtwMaps.MAPS:
 		_button(column, "new_" + String(map), "New game: " + TtwMaps.TITLES[map], func(): game.restart(map))
 	_button(column, "title", "Main menu", func(): TtwTitle.back_to_title(game))
-	_button(column, "quit", "Quit", func(): game.get_tree().quit())
+	if not OS.has_feature("web"):
+		_button(column, "quit", "Quit", func(): game.get_tree().quit())
 	_panel.visible = false
 
 func _button(parent: Control, id: String, text: String, pressed: Callable) -> void:
