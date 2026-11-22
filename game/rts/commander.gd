@@ -70,7 +70,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	var at := get_global_mouse_position()
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			game.camera.zoom = Vector2.ONE * _zoom.apply(event, game.camera.zoom.x)
+			TtwZoom.toward(game.camera, at, _zoom.apply(event, game.camera.zoom.x))
 		elif event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
 				if not placing.is_empty():

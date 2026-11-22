@@ -1,5 +1,5 @@
 class_name TtwZoom extends RefCounted
-## Camera zoom in whole steps from the mouse wheel. A smooth-scrolling or
+## Camera zoom in whole steps from the mouse wheel, toward the cursor. A smooth-scrolling or
 ## high-resolution wheel sends several events per notch, each carrying a part
 ## of it (InputEventMouseButton.factor); they are added up and the zoom moves
 ## one step per whole notch, not one per event.
@@ -37,3 +37,12 @@ func _nearest(value: float) -> int:
 		if absf(levels[k] - value) < absf(levels[best] - value):
 			best = k
 	return best
+
+## Zooms `camera` to `zoom`, keeping the world point `at` (the cursor) where
+## it is on the screen.
+static func toward(camera: Camera2D, at: Vector2, zoom: float) -> void:
+	var before := camera.zoom.x
+	if is_equal_approx(before, zoom):
+		return
+	camera.position = at + (camera.position - at) * (before / zoom)
+	camera.zoom = Vector2.ONE * zoom

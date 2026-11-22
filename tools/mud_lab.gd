@@ -169,7 +169,11 @@ func _over_ui() -> bool:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
-		camera.zoom = Vector2.ONE * _zoom.apply(event, camera.zoom.x)
+		var zoom := _zoom.apply(event, camera.zoom.x)
+		if not is_equal_approx(zoom, camera.zoom.x):
+			# Toward the cursor: that lets go of the vehicle, as panning does.
+			following = false
+			TtwZoom.toward(camera, get_global_mouse_position(), zoom)
 		_update_help()
 	elif event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_ESCAPE:
