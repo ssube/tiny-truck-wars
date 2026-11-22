@@ -410,6 +410,32 @@ the zoom a game starts with there:
 
 (1280×720, now: 106 to 125, 906 to 914, 1270 to 1301.)
 
+### Frames by release
+
+The frame probe run on each release's own checkout, on the Radeon at
+1280×720, vsync off, zoom 3: three runs each, eleven of the stress scene at
+0.2.0 and 0.2.4 (taken in turns, so the machine's drift falls on both).
+Frames per second, least / median / most:
+
+| Release | stress | skirmish | idle |
+| --- | ---: | ---: | ---: |
+| 0.2.0 | 79 / 103 / 135 | 1088 / 1096 / 1110 | 1287 / 1290 / 1299 |
+| 0.2.1 (fire drawn upright) | 96 / 97 / 125 | 1089 / 1094 / 1115 | 1261 / 1281 / 1297 |
+| 0.2.2 (water maps uploaded once a change) | 85 / 94 / 107 | 1115 / 1122 / 1152 | 1283 / 1292 / 1308 |
+| 0.2.3 (chunk layers in two arrays) | 80 / 86 / 107 | 1156 / 1167 / 1167 | 1372 / 1381 / 1384 |
+| 0.2.4 | 75 / 94 / 132 | 1128 / 1158 / 1193 | 1370 / 1372 / 1380 |
+
+- The skirmish and the idle map are about 6% faster. The packed layers cut
+  the GPU's frame from 0.52 to 0.48 ms; the water flag halved the ground's
+  refresh on the idle map (0.04 to 0.02 ms).
+- The stress scene's median is about 8% lower, inside its spread. A tick
+  costs 9.49 to 9.89 ms (pushing by weight and firing at the ground, the 4%
+  measured when they went in); the scene is held by the CPU, where a tick's
+  millisecond costs more than one in the frame. Uploads cost the same per
+  chunk (0.42 and 0.41 ms) and its GPU frame fell from 2.18 to 2.05 ms.
+- Ticks a frame swing from run to run in the stress scene, so its range
+  says more than any one run.
+
 ### What a packed array costs to reach
 
 200,000 accesses, Godot 4.7.2:
