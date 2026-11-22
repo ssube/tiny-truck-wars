@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.2.0
+
+- Runs much faster: about twice the frame rate in a big battle and four times
+  or more in a normal skirmish. The ground is shaded once per world pixel,
+  only changed ground is sent to the graphics card, and debris out of view
+  is not drawn.
+- The picture is enlarged by whole factors only, so pixels stay square and
+  sharp, and every screen size starts on about the same view of the map.
+- A title screen: any of the three maps, the saved game, or the Mud Lab.
+- The mouse wheel zooms one step per notch, toward the cursor.
+- The Mud Lab's camera follows the vehicle you drive.
+- Fixed: a game crashed when a selected structure was destroyed.
+- Fixed: the R (lay road) and F (special) keys did nothing.
+- Routes keep clear of buildings, trees and wrecks, prefer roads, keep out
+  of water, and go round vehicles standing in the way.
+- Units no longer drive through each other, and shells are drawn as tracers.
+
 ## 0.1.0
 
 The first release.

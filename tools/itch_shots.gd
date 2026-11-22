@@ -154,7 +154,7 @@ func _chain() -> void:
 		var d: TtwDepot = depots[k].get_component(TtwDepot)
 		d.stock = d.capacity
 	await _frames(5)
-	game.camera.position = row + Vector2(66, -10)
+	game.camera.position = row + Vector2(66, -40)
 	game.camera.zoom = Vector2(3, 3)
 	TtwDamage.hurt(game.session, depots[0], 1.0e6, row - Vector2(30, 0))
 	# Mid-chain: the second depot going up, the first one's fire and smoke.
