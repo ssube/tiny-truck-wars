@@ -1,0 +1,53 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://game/units/vehicle_2d.gd" id="1"]
+[ext_resource type="Script" path="res://game/components/vehicle.gd" id="2"]
+[ext_resource type="Script" path="res://game/components/drive.gd" id="3"]
+[ext_resource type="Script" path="res://game/components/fuel.gd" id="4"]
+[ext_resource type="Script" path="res://game/components/condition.gd" id="5"]
+[ext_resource type="Script" path="res://game/components/boss.gd" id="6"]
+
+[sub_resource type="Resource" id="vehicle"]
+script = ExtResource("2")
+kind = &"boss"
+running = 1
+sink_px = 0.9
+tread_length_px = 0.0
+gauge_px = 15.0
+contact_width_px = 3.0
+axles_px = PackedFloat32Array(14.0, -14.0)
+wading_depth_px = 2.5
+flood_depth_px = 6.0
+
+[sub_resource type="Resource" id="drive"]
+script = ExtResource("3")
+max_speed_tiles = 5.0
+accel_tiles = 3.0
+turn_rate = 1.7
+traction = 3.5
+
+[sub_resource type="Resource" id="fuel"]
+script = ExtResource("4")
+capacity = 80.0
+idle_burn = 0.04
+drive_burn = 0.4
+
+[sub_resource type="Resource" id="condition"]
+script = ExtResource("5")
+max_health = 80.0
+water_wear = 0.6
+
+[sub_resource type="Resource" id="boss"]
+script = ExtResource("6")
+reach_tiles = 6.0
+speedup = 0.5
+
+[node name="Boss" type="Node2D"]
+script = ExtResource("1")
+art = "boss"
+vehicle = SubResource("vehicle")
+drive = SubResource("drive")
+fuel = SubResource("fuel")
+condition = SubResource("condition")
+extra_components = Array[Component]([SubResource("boss")])
+sprite_offset = Vector2(0, -4)

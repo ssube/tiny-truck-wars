@@ -1,0 +1,56 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://game/units/vehicle_2d.gd" id="1"]
+[ext_resource type="Script" path="res://game/components/vehicle.gd" id="2"]
+[ext_resource type="Script" path="res://game/components/drive.gd" id="3"]
+[ext_resource type="Script" path="res://game/components/fuel.gd" id="4"]
+[ext_resource type="Script" path="res://game/components/condition.gd" id="5"]
+[ext_resource type="Script" path="res://game/components/smoke_launcher.gd" id="6"]
+
+[sub_resource type="Resource" id="vehicle"]
+script = ExtResource("2")
+kind = &"hippy"
+running = 1
+sink_px = 0.7
+tread_length_px = 0.0
+gauge_px = 14.0
+contact_width_px = 3.0
+axles_px = PackedFloat32Array(11.0, -11.0)
+wading_depth_px = 2.5
+flood_depth_px = 5.0
+
+[sub_resource type="Resource" id="drive"]
+script = ExtResource("3")
+max_speed_tiles = 5.5
+accel_tiles = 3.5
+turn_rate = 2.0
+traction = 3.5
+
+[sub_resource type="Resource" id="fuel"]
+script = ExtResource("4")
+capacity = 60.0
+idle_burn = 0.03
+drive_burn = 0.3
+
+[sub_resource type="Resource" id="condition"]
+script = ExtResource("5")
+max_health = 60.0
+water_wear = 0.6
+
+[sub_resource type="Resource" id="smoke"]
+script = ExtResource("6")
+cooldown_seconds = 25.0
+throw_tiles = 4.0
+radius_tiles = 3.0
+seconds = 12.0
+slow = 0.45
+
+[node name="Hippy" type="Node2D"]
+script = ExtResource("1")
+art = "hippy"
+vehicle = SubResource("vehicle")
+drive = SubResource("drive")
+fuel = SubResource("fuel")
+condition = SubResource("condition")
+extra_components = Array[Component]([SubResource("smoke")])
+sprite_offset = Vector2(0, -4)

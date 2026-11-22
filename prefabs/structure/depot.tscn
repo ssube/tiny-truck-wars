@@ -1,0 +1,38 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://game/structures/structure_2d.gd" id="1"]
+[ext_resource type="Script" path="res://game/components/health.gd" id="2"]
+[ext_resource type="Script" path="res://game/components/obstacle.gd" id="3"]
+[ext_resource type="Script" path="res://game/components/depot.gd" id="4"]
+
+[sub_resource type="Resource" id="health"]
+script = ExtResource("2")
+max_health = 300.0
+
+[sub_resource type="Resource" id="obstacle"]
+script = ExtResource("3")
+shape = 1
+half_extents = Vector2(20.0, 13.0)
+ram_speed = 9999.0
+ram_weight = 99.0
+height_px = 10.0
+
+[sub_resource type="Resource" id="depot"]
+script = ExtResource("4")
+capacity = 500.0
+start_stock = 250.0
+refill = 1.0
+cluster_tiles = 6.0
+cluster_bonus = 0.25
+cluster_cap = 2.0
+refuel_tiles = 3.0
+refuel_rate = 12.0
+
+[node name="Depot" type="Node2D"]
+script = ExtResource("1")
+health = SubResource("health")
+obstacle = SubResource("obstacle")
+fuel = 0.0
+kind = &"depot"
+depot = SubResource("depot")
+sprite_offset = Vector2(0, -8)

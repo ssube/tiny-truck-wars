@@ -1,0 +1,6 @@
+.godot/
+/reports/
+/.gdunit4/
+__pycache__/
+/builds/
+/import_dump/

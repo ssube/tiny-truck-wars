@@ -1,0 +1,35 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://game/units/aircraft_2d.gd" id="1"]
+[ext_resource type="Script" path="res://game/components/flight.gd" id="2"]
+[ext_resource type="Script" path="res://game/components/fuel.gd" id="3"]
+[ext_resource type="Script" path="res://game/components/condition.gd" id="4"]
+
+[sub_resource type="Resource" id="flight"]
+script = ExtResource("2")
+max_speed_tiles = 7.0
+accel_tiles = 5.0
+cruise_px = 26.0
+climb_px = 14.0
+drift = 0.6
+hover_burn = 0.25
+speed_burn = 0.25
+
+[sub_resource type="Resource" id="fuel"]
+script = ExtResource("3")
+capacity = 90.0
+idle_burn = 0.0
+drive_burn = 0.0
+
+[sub_resource type="Resource" id="condition"]
+script = ExtResource("4")
+max_health = 120.0
+water_wear = 0.0
+
+[node name="Helicopter" type="Node2D"]
+script = ExtResource("1")
+art = "helicopter"
+flight = SubResource("flight")
+fuel = SubResource("fuel")
+condition = SubResource("condition")
+sprite_offset = Vector2(0, -8)

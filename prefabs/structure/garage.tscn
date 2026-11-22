@@ -1,0 +1,39 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://game/structures/structure_2d.gd" id="1"]
+[ext_resource type="Script" path="res://game/components/health.gd" id="2"]
+[ext_resource type="Script" path="res://game/components/obstacle.gd" id="3"]
+[ext_resource type="Script" path="res://game/components/garage.gd" id="4"]
+[ext_resource type="Script" path="res://game/components/build_queue.gd" id="5"]
+
+[sub_resource type="Resource" id="health"]
+script = ExtResource("2")
+max_health = 600.0
+
+[sub_resource type="Resource" id="obstacle"]
+script = ExtResource("3")
+shape = 1
+half_extents = Vector2(22.0, 14.0)
+ram_speed = 9999.0
+ram_weight = 99.0
+height_px = 16.0
+
+[sub_resource type="Resource" id="garage"]
+script = ExtResource("4")
+repair_tiles = 3.0
+repair_rate = 6.0
+repair_fuel = 0.1
+
+[sub_resource type="Resource" id="build_queue"]
+script = ExtResource("5")
+builds = Array[StringName]([&"tank", &"wrecker", &"tanker", &"engineer", &"water_tanker", &"hippy", &"boss", &"nurse"])
+
+[node name="Garage" type="Node2D"]
+script = ExtResource("1")
+health = SubResource("health")
+obstacle = SubResource("obstacle")
+fuel = 20.0
+kind = &"garage"
+garage = SubResource("garage")
+sprite_offset = Vector2(0, -8)
+build_queue = SubResource("build_queue")

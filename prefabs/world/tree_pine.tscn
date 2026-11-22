@@ -1,0 +1,29 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/world/tree_2d.gd" id="1"]
+[ext_resource type="Script" path="res://game/components/health.gd" id="2"]
+[ext_resource type="Script" path="res://game/components/obstacle.gd" id="3"]
+[ext_resource type="Script" path="res://game/components/tree.gd" id="4"]
+[ext_resource type="Texture2D" path="res://assets/world/tree_pine_0.png" id="5"]
+
+[sub_resource type="Resource" id="health"]
+script = ExtResource("2")
+max_health = 60.0
+
+[sub_resource type="Resource" id="obstacle"]
+script = ExtResource("3")
+shape = 0
+radius = 4.0
+ram_speed = 25.0
+
+[sub_resource type="Resource" id="tree"]
+script = ExtResource("4")
+height_px = 44.0
+
+[node name="Tree" type="Node2D"]
+script = ExtResource("1")
+health = SubResource("health")
+obstacle = SubResource("obstacle")
+fuel = 22.0
+tree = SubResource("tree")
+art = ExtResource("5")

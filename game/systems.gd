@@ -1,0 +1,31 @@
+class_name TtwSystems extends RefCounted
+## Installs the game's systems in dispatch order. Tests and the game build the
+## same session through this.
+
+static func install(session: KitSession) -> void:
+	session.add_system(&"weather", TtwWeatherSystem.new(), "input")
+	session.add_system(&"pilot", TtwPilotSystem.new(), "input")
+	session.add_system(&"water", TtwWaterSystem.new(), "physics")
+	session.add_system(&"flight", TtwFlightSystem.new(), "physics")
+	session.add_system(&"winch", TtwWinchSystem.new(), "physics")
+	session.add_system(&"drive", TtwDriveSystem.new(), "physics")
+	session.add_system(&"tow", TtwTowSystem.new(), "physics")
+	session.add_system(&"separation", TtwSeparationSystem.new(), "physics")
+	session.add_system(&"obstacles", TtwObstacleSystem.new(), "physics")
+	session.add_system(&"tracks", TtwTrackSystem.new(), "physics")
+	session.add_system(&"settle", TtwSettleSystem.new(), "gameplay")
+	session.add_system(&"fire", TtwFireSystem.new(), "gameplay")
+	session.add_system(&"oil", TtwOilSystem.new(), "gameplay")
+	session.add_system(&"snow", TtwSnowSystem.new(), "gameplay")
+	session.add_system(&"crowd", TtwCrowdSystem.new(), "gameplay")
+	session.add_system(&"paths", TtwPathSystem.new(), "gameplay")
+	session.add_system(&"depots", TtwDepotSystem.new(), "gameplay")
+	session.add_system(&"garages", TtwGarageSystem.new(), "gameplay")
+	session.add_system(&"specials", TtwSpecialSystem.new(), "gameplay")
+	session.add_system(&"kits", TtwKitSystem.new(), "gameplay")
+	session.add_system(&"guns", TtwGunSystem.new(), "gameplay")
+	session.add_system(&"ballistics", TtwBallisticsSystem.new(), "gameplay")
+	session.add_system(&"ai", TtwAiSystem.new(), "gameplay")
+	session.add_system(&"match", TtwMatchSystem.new(), "gameplay")
+	session.add_system(&"wakes", TtwWakeSystem.new(), "presentation")
+	session.add_system(&"effects", TtwEffectsSystem.new(), "presentation")

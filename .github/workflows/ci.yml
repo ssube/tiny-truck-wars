@@ -1,0 +1,43 @@
+name: CI
+
+# The unit and integration suites and the leak check, on every push and pull
+# request. (The render probes need a GL renderer under xvfb; they run in the
+# Forgejo CI, .forgejo/workflows/ci.yml.)
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_call:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: "4.7.2"
+
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/godot
+        with:
+          version: ${{ env.GODOT_VERSION }}
+      - name: Import assets
+        run: ci/import.sh
+      - name: Unit tests
+        run: KIT_TEST_HEADLESS=1 ./run-tests.sh res://tests/unit
+      - name: Integration tests
+        if: ${{ !cancelled() }}
+        run: KIT_TEST_HEADLESS=1 ./run-tests.sh res://tests/integration
+      - name: Leak check
+        if: ${{ !cancelled() }}
+        run: ./run-leak-check.sh
+      - name: Keep the reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: reports/
+          if-no-files-found: ignore
