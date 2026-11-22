@@ -117,6 +117,67 @@ and buildings stop it (TtwObstacleSystem).
 - `TtwFire` (flames, shimmer, firelight on the ground, lit smoke),
   `TtwSmokeScreen`, and `TtwFx.explode` for the look of any blast.
 
+## Texture units
+
+Every shader must fit in **16 texture units** for its fragment stage. That is
+all WebGL 2 and GLES 3 promise, and what browsers and many laptop GPUs give.
+A shader over the limit does not compile there, and the game draws nothing
+of it. 0.2.2 and earlier failed this way in players' browsers ("FRAGMENT
+shader texture image units count exceeds MAX_TEXTURE_IMAGE_UNITS(16)"). The
+Radeon here allows 32, and Chrome's software renderer reports 32 too, so
+only a count catches it.
+
+How a texture is counted:
+- **ANGLE (Chrome, Edge, most Windows browsers) counts static use.** That is
+  every sampler the final GLSL names after its `#if`s are resolved, whether
+  or not that code ever runs. A driver that counts only what the program
+  actually reads gives a lower number, so plan by ANGLE's.
+- **Godot's own 2D shader code names four textures** in every `canvas_item`
+  fragment: `color_texture` (`TEXTURE`), `normal_texture`,
+  `specular_texture` and `sdf_texture`. A lit shader adds two more (the
+  light and shadow atlases), and a screen read adds one (`color_buffer`,
+  from `hint_screen_texture`). None of ours are lit: nothing in the game
+  makes a `Light2D`. A light would add 2 to every row below.
+- An array texture (`sampler2DArray`) takes one unit for all its layers.
+  That is how the ground fits: its chunk layers are two arrays, `cell_layers`
+  (filtered) and `cell_marks` (nearest), and its tile maps are one,
+  `tile_layers`.
+
+What each shader uses, measured on 0.2.4 (`ci/shader-units.sh`):
+
+| Shader | Its own samplers | Read when run | ANGLE's count |
+| --- | --- | ---: | ---: |
+| `terrain` | `cell_layers`, `cell_marks`, `tile_layers`, `surface_tex`, `water_color_tex`, `flow_tex`, `fx_tex`, `noise_tex` | 8 | **12** |
+| `water_fx` | `tile_layers`, `flow_tex`, screen (`state`) | 3 | 7 |
+| `heat_haze` | `noise_tex`, screen | 2 | 6 |
+| `smoke` | `noise_tex` | 2 | 5 |
+| `fire` | `noise_tex` | 1 | 5 |
+| `reflection` | global `ttw_water` (water depth) | 2 | 5 |
+| `vehicle`, `wind_sway`, `fire_glow` | none | 0 to 1 | 4 |
+| Godot's own (default 2D, copies, sky) | | up to 3 | up to 4 |
+
+The ground has 4 units to spare. Before 0.2.3 its chunk layers were nine
+separate textures, so it had 19.
+
+The checks:
+- `tests/unit/test_shaders.gd` is quick and runs in the unit suite. It counts
+  from the source: every sampler uniform (arrays by their length, global and
+  instance uniforms too), plus Godot's 4, or 6 when lit.
+- `ci/shader-units.sh` is the real count, run in CI's probes job. It plays
+  the title, each skirmish map, the Mud Lab and the effect probes under Mesa
+  with `MESA_SHADER_CAPTURE_PATH`, then has `tools/shader_units.py` link each
+  captured program and count it both ways: what the driver reports and
+  ANGLE's static use. It fails if any program is over 16, or if a shader
+  in `shaders/` was never compiled. A shader is recognised by a uniform no
+  other shader has, matched against the material block and sampler
+  declarations; Godot prefixes locals with `m_` too, so matching names
+  anywhere else is not proof. A new shader that only shows in some
+  situation needs a run that draws it. The output is
+  `reports/shader-units/units.txt`.
+- To add a texture: if the shader is near 16, put same-format data in an
+  existing array as a new layer (`Texture2DArray.update_layer`), or pack
+  channels into one texture, rather than adding a sampler.
+
 ## Tools and checks
 
 - Mud Lab: `godot --path . res://tools/mud_lab.tscn` (keys in `tools/mud_lab.gd`).

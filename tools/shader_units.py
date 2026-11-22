@@ -153,6 +153,16 @@ def static_samplers(source):
     return sum(size for name, size in declared.items() if re.search(r"\b%s\b" % name, text))
 
 
+def declared_uniforms(source):
+    """Names a capture declares as uniforms: members of the material's block
+    and sampler uniforms."""
+    names = set()
+    for block in re.findall(r"uniform\s+MaterialUniforms\s*\{(.*?)\}", source, re.S):
+        names.update(re.findall(r"\b(m_\w+)\s*(?:\[[^\]]*\])?\s*;", block))
+    names.update(re.findall(r"^\s*uniform\s+(?:\w+\s+)?\w*sampler\w*\s+(\w+)", source, re.M))
+    return names
+
+
 def sections(path):
     text = path.read_text(errors="replace")
     parts = re.split(r"^\[(\w+ shader|require)\]\s*$", text, flags=re.M)
@@ -200,11 +210,14 @@ def main():
     if args.shaders:
         sources = {p.name: p.read_text(errors="replace") for p in sorted(pathlib.Path(args.shaders).glob("*.gdshader"))}
         names = {n: set(re.findall(r"^\s*(?:global\s+|instance\s+)?uniform\s+(?:\w+\s+)?\w+\s+(\w+)", t, re.M)) for n, t in sources.items()}
-        captured = [path.read_text(errors="replace") for path in files]
+        # What each capture declares as a uniform: the material block's members
+        # and the samplers. Godot names a shader's uniforms m_<name>, and its
+        # locals too, so a name found anywhere else proves nothing.
+        captured = [declared_uniforms(path.read_text(errors="replace")) for path in files]
         for name, own in names.items():
-            # Its uniforms no other shader has: Godot names them m_<name>.
+            # Its uniforms no other shader has.
             unique = own - set().union(*(v for k, v in names.items() if k != name))
-            found = any(any(re.search(r"\bm_%s\b" % u, text) for u in unique) for text in captured) if unique else True
+            found = any(("m_" + u) in declared for u in unique for declared in captured) if unique else True
             print("%-24s %s" % (name, "compiled" if found else "NEVER COMPILED: not counted"))
             if not found:
                 missing.append(name)

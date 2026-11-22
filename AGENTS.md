@@ -88,6 +88,11 @@ A run is only clean if the wrapper exits 0: it rejects any engine `ERROR:`,
 `SCRIPT ERROR:` or `SHADER ERROR:` line even when every assertion passed.
 After adding new assets or a `class_name`, run `ci/import.sh` first.
 
+Every shader fits 16 texture units by ANGLE's count: Godot's own 2D code
+names 4 textures before ours. `tests/unit/test_shaders.gd` and
+`ci/shader-units.sh` check it. What each shader uses, and how to add a
+texture without a new unit, is in `docs/ground.md`, "Texture units".
+
 `run-leak-check.sh` runs the real game path (start, a simulated second on a map,
 free, several rounds) and fails on any engine exit-leak report or growth after
 warmup. Don't keep runtime-built resources (images, textures) in a `static var`.
