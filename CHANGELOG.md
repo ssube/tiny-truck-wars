@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1
+
+- Fixed: flames were drawn upside down, with the bright core at the top and
+  the torn tips hanging below. They now burn upright from the ground.
+
 ## 0.2.0
 
 - Runs much faster: about twice the frame rate in a big battle and four times
