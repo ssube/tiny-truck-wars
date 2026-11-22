@@ -33,6 +33,7 @@ var placing: StringName = &""
 var _drag_from: Vector2
 var _dragging: bool = false
 var _pressed: bool = false
+var _zoom := TtwZoom.new(PackedFloat32Array([1.0, 2.0, 3.0, 4.0, 5.0]))
 
 func _init() -> void:
 	name = "Commander"
@@ -68,10 +69,8 @@ func _process(delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	var at := get_global_mouse_position()
 	if event is InputEventMouseButton:
-		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
-			game.camera.zoom = Vector2.ONE * minf(game.camera.zoom.x + 1.0, 5.0)
-		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
-			game.camera.zoom = Vector2.ONE * maxf(game.camera.zoom.x - 1.0, 1.0)
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			game.camera.zoom = Vector2.ONE * _zoom.apply(event, game.camera.zoom.x)
 		elif event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
 				if not placing.is_empty():

@@ -1,7 +1,8 @@
 class_name TtwMudLab extends Node2D
 ## The Mud Lab: a test ground to drive on and to tune how mud, ruts and water
 ## look. It runs the real game (session, systems, prefabs).
-##   WASD            pan               wheel         zoom (whole steps)
+##   WASD            pan (lets go of the vehicle; driving it follows again)
+##                                     wheel         zoom (whole steps)
 ##   arrows          drive the selected vehicle      Q  select the next
 ##   T Y U I K       spawn tank, truck, hippy, boss, nurse at the mouse
 ##   C / V / B       shell / rocket / vehicle crater at the mouse
@@ -39,6 +40,10 @@ var _sliders: Control
 var _last_mouse: Vector2
 var _heading: float = 0.0
 var _paths: TtwPathView
+## The camera keeps the selected vehicle in view until WASD pans away.
+var following: bool = true
+const FOLLOW_RATE := 6.0
+var _zoom := TtwZoom.new(PackedFloat32Array([0.5, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]))
 
 func _ready() -> void:
 	game = TtwGame.new()
@@ -100,6 +105,7 @@ func spawn(kind: StringName, at: Vector2, heading: float = 0.0) -> Entity:
 	if entity != null:
 		vehicles.append(entity)
 		selected = vehicles.size() - 1
+		following = true
 	return entity
 
 ## Gives `wrecker` a winch if it has none and hooks the vehicle nearest `at`
@@ -126,11 +132,19 @@ func _process(delta: float) -> void:
 	if Input.is_physical_key_pressed(KEY_W): pan.y -= 1
 	if Input.is_physical_key_pressed(KEY_S): pan.y += 1
 	camera.position += pan.limit_length(1.0) * PAN_SPEED * delta / camera.zoom.x
+	# Panning lets go of the vehicle; driving it takes the camera back.
+	if pan != Vector2.ZERO:
+		following = false
 	var vehicle := selected_vehicle()
 	if vehicle != null:
 		var drive: TtwDrive = vehicle.get_component(TtwDrive)
 		drive.throttle = Input.get_axis("ui_down", "ui_up")
 		drive.steer = Input.get_axis("ui_left", "ui_right")
+		if drive.throttle != 0.0 or drive.steer != 0.0:
+			following = true
+		var body := game.session.body_of(vehicle)
+		if following and body != null:
+			camera.position = camera.position.lerp(body.position, minf(1.0, FOLLOW_RATE * delta))
 	var mouse := get_global_mouse_position()
 	if mouse.distance_to(_last_mouse) > 0.5:
 		_heading = (mouse - _last_mouse).angle()
@@ -155,10 +169,7 @@ func _over_ui() -> bool:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
-		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			camera.zoom = Vector2.ONE * minf(camera.zoom.x + 1, 8) if camera.zoom.x >= 1 else Vector2.ONE
-		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			camera.zoom = Vector2.ONE * maxf(camera.zoom.x - 1, 1) if camera.zoom.x > 1 else Vector2.ONE * 0.5
+		camera.zoom = Vector2.ONE * _zoom.apply(event, camera.zoom.x)
 		_update_help()
 	elif event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_ESCAPE:
@@ -191,6 +202,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			game.water_fx.rain = 0.0 if game.water_fx.rain > 0.0 else 1.0
 		elif event.keycode == KEY_Q and not vehicles.is_empty():
 			selected = (selected + 1) % vehicles.size()
+			following = true
 		elif event.keycode == KEY_BRACKETLEFT:
 			radius_px = maxf(2.0, radius_px - 2.0)
 		elif event.keycode == KEY_BRACKETRIGHT:
