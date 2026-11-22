@@ -12,7 +12,8 @@ void fragment() {
 	vec2 uv = (floor(UV * texels) + 0.5) / texels;
 	float n = texture(noise_tex, vec2(uv.x * 0.8 + seed, uv.y * 0.6 + TIME * 1.3)).r;
 	float n2 = texture(noise_tex, vec2(uv.x * 1.7 - seed, uv.y * 1.1 + TIME * 2.2)).r;
-	float rise = 1.0 - uv.y;
+	// UV y runs down the quad: the bottom (y = 1) burns hottest.
+	float rise = uv.y;
 	float width = 1.0 - abs(uv.x - 0.5) * 2.0;
 	float heat = (rise * 1.15 * pow(width, 0.7) + (n * 0.6 + n2 * 0.4 - 0.5) * 0.9) * intensity;
 	vec4 c = vec4(0.0);
