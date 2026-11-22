@@ -166,6 +166,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("dir")
     parser.add_argument("--limit", type=int, default=16)
+    parser.add_argument("--shaders", help="a folder of the game's .gdshader files: each must be among the captured programs")
     args = parser.parse_args()
     gl = context()
     here = ctypes.c_int()
@@ -195,6 +196,21 @@ def main():
     for units, declared, name, names, ours in rows:
         flag = "  OVER" if max(units, declared) > args.limit else ""
         print("%-8d %-9d %-18s %s%s" % (units, declared, name, ", ".join(names), flag))
+    missing = []
+    if args.shaders:
+        sources = {p.name: p.read_text(errors="replace") for p in sorted(pathlib.Path(args.shaders).glob("*.gdshader"))}
+        names = {n: set(re.findall(r"^\s*(?:global\s+|instance\s+)?uniform\s+(?:\w+\s+)?\w+\s+(\w+)", t, re.M)) for n, t in sources.items()}
+        captured = [path.read_text(errors="replace") for path in files]
+        for name, own in names.items():
+            # Its uniforms no other shader has: Godot names them m_<name>.
+            unique = own - set().union(*(v for k, v in names.items() if k != name))
+            found = any(any(re.search(r"\bm_%s\b" % u, text) for u in unique) for text in captured) if unique else True
+            print("%-24s %s" % (name, "compiled" if found else "NEVER COMPILED: not counted"))
+            if not found:
+                missing.append(name)
+    if missing:
+        print("SHADER_UNITS: FAIL %d shader(s) never compiled, so not counted: %s" % (len(missing), ", ".join(missing)))
+        return 1
     if over:
         print("SHADER_UNITS: FAIL %d program(s) over %d: %s" % (len(over), args.limit, ", ".join(over)))
         return 1
