@@ -59,6 +59,8 @@ func _run() -> void:
 	var uploads := 0
 	var frames := 0
 	var start_tick := game.session.tick
+	# Wall time, for frames per second: a measurement, not a game input.
+	var wall_start := Time.get_ticks_usec()
 	while game.session.tick - start_tick < TICKS:
 		await get_tree().process_frame
 		frames += 1
@@ -71,6 +73,7 @@ func _run() -> void:
 			game.fx.explode(at, &"rocket")
 		game.camera.position = game.session.body_of(game.session.resolve("unit:tank:1")).position
 	var ticks := game.session.tick - start_tick
+	var wall := (Time.get_ticks_usec() - wall_start) / 1.0e6
 	_line("== %d units on %s tiles, %d ticks, %d frames" % [VEHICLES, str(game.terrain.size_tiles), ticks, frames])
 	var total := 0.0
 	for row in systems:
@@ -79,6 +82,8 @@ func _run() -> void:
 		total += per_tick
 		_line("   %-10s %8.1f us per tick" % [row[0], per_tick])
 	_line("   %-10s %8.1f us per tick (%.1f%% of a 60 Hz tick)" % ["total", total, total / 166.67])
+	_line("   %.1f frames per second, %.1f ticks per second (%.0f%% of game speed), over %.1f s on %s" % [
+		frames / wall, ticks / wall, ticks / wall / Engine.physics_ticks_per_second * 100.0, wall, RenderingServer.get_video_adapter_name()])
 	_line("   path grid: built in %.1f ms, a route across the map in %.2f ms" % [build_us / 1000.0, find_us / 1000.0])
 	_line("   frame: process %.2f ms, physics %.2f ms; %.2f chunk uploads per frame; settling queue %d cells; %d bits, %d puff particles" % [
 		process / frames * 1000.0, physics / frames * 1000.0, float(uploads) / frames, game.terrain.settling.size(), game.fx.debris.count(), game.fx.puffs.live()])
