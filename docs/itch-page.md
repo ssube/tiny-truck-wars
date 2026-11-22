@@ -63,6 +63,21 @@ same simulation and can be slower than the downloads on a busy map.
 - WASD or arrows to pan, mouse wheel to zoom, Esc for the menu, F5 and F9 to
   save and load.
 
+### Units
+
+Garages build the ground vehicles; helipads build the helicopters.
+
+- **Tank**: the main fighter. Fires shells on an arc that lead moving targets; ridges and tall buildings can stop them. Can shoot at helicopters too, hitting about one shot in three.
+- **Wrecker**: a truck with a winch and tow hitch. Pulls stuck vehicles out of the mud and tows wrecks home, where the garage breaks them up for fuel.
+- **Tanker**: a truck that fills up at your depots and refuels anything of yours parked near it, including landed helicopters.
+- **Engineer**: the only unit that can build. Garages, depots and helipads can only be put down within a few tiles of an engineer, and it can lay gravel road over the mud as it drives (R).
+- **Water tanker**: pumps from rivers and ponds, then sprays a spot (F) to turn a field into mud on purpose or put out a fire.
+- **Hippy**: a beaten-up van that throws a smoke screen (F). Ground units in the smoke slow down, and tanks can't pick out targets inside it.
+- **Boss**: a black state limousine. Garages and helipads near it build faster.
+- **Nurse**: a field ambulance that repairs your tanks and trucks nearby, but not helicopters.
+- **Gunship**: a helicopter that fires rockets at ground targets. Flies over rivers and mud, gets pushed around by the wind, and lands on a helipad to refuel and repair.
+- **Bucket helicopter**: dips a bucket in the river and drops it on a spot (F), for putting out fires or soaking the ground.
+
 ### Downloads
 
 Windows and Linux: unzip and run `tiny-truck-wars.exe` or
