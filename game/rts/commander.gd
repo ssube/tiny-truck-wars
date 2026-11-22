@@ -60,7 +60,9 @@ func _process(delta: float) -> void:
 		var half := view / camera.zoom * 0.5
 		var size := game.terrain.size_px()
 		camera.position = camera.position.clamp(half.min(size * 0.5), (size - half).max(size * 0.5))
-	selected = selected.filter(func(e: Entity): return is_instance_valid(e) and session().body_of(e) != null)
+	# Untyped: a freed entity cannot be passed as an Entity, so a typed
+	# lambda would fail on the very ones this drops.
+	selected.assign(selected.filter(func(e): return is_instance_valid(e) and session().body_of(e) != null))
 	queue_redraw()
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -148,13 +150,13 @@ func pick(at: Vector2, own_only: bool = false) -> Entity:
 func selected_units() -> Array[Entity]:
 	var out: Array[Entity] = []
 	for entity in selected:
-		if entity.has_component(TtwUnit):
+		if is_instance_valid(entity) and entity.has_component(TtwUnit):
 			out.append(entity)
 	return out
 
 func selected_structure() -> Entity:
 	for entity in selected:
-		if entity.has_component(TtwStructure):
+		if is_instance_valid(entity) and entity.has_component(TtwStructure):
 			return entity
 	return null
 

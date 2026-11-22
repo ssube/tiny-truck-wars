@@ -117,3 +117,22 @@ func test_r_sets_the_selected_engineer_laying_road_and_f_throws_the_hippys_smoke
 	var smoked := UI.observe((game.session.system(&"specials") as TtwSpecialSystem).smoked)
 	_key(KEY_F)
 	assert_bool(smoked.received).is_true()
+
+func test_a_selected_garage_destroyed_leaves_the_selection_and_the_hud_quietly() -> void:
+	await _start()
+	var c := game.commander
+	var garage: Entity = game.session.view([TtwGarage, TtwTeam]).filter(func(e): return TtwTeam.of(e) == 1)[0]
+	var tank: Entity = _own(&"tank")[0]
+	c.select_at(game.session.body_of(garage).position)
+	c.selected.append(tank)
+	var over := UI.observe((game.session.system(&"match") as TtwMatchSystem).match_over)
+	TtwDamage.hurt(game.session, garage, 1.0e6, Vector2.ZERO)
+	# Frames, not ticks: the HUD and the commander draw from the selection
+	# every frame while the garage is freed (run-tests fails on any script error).
+	for k in 5:
+		await get_tree().process_frame
+	assert_bool(over.received).is_true()
+	assert_int(over.value).is_equal(2)
+	assert_bool(c.selected.has(tank)).is_true()
+	assert_int(c.selected.size()).is_equal(1)
+	assert_object(c.selected_structure()).is_null()
