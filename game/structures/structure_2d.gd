@@ -9,7 +9,6 @@ class_name TtwStructure2D extends TtwProp2D
 
 signal neighbours_changed(count: int)
 
-const RUBBLE := preload("res://assets/world/rubble.png")
 const DIRECTIONS := ["east", "south-east", "south", "south-west", "west", "north-west", "north", "north-east"]
 
 ## assets/structures/<kind>/<facing>.png
@@ -142,12 +141,7 @@ func collapse(cause: StringName) -> void:
 				t.set_material(Vector2i(x, y), TtwMaterials.GRAVEL)
 	var g := game()
 	if g != null:
-		var heap := Sprite2D.new()
-		heap.texture = RUBBLE
-		heap.add_to_group(TtwSave.RUBBLE_GROUP)
-		heap.position = center
-		heap.scale = Vector2(o.half_extents.x * 2.0 / RUBBLE.get_width(), o.half_extents.y * 2.0 / RUBBLE.get_height())
-		get_parent().add_child(heap)
+		TtwRubble.heap(get_parent(), center, o.half_extents, get_instance_id())
 		g.fx.explode(center, cause)
 	fuel = 0.0
 	retire()

@@ -89,7 +89,7 @@ static func capture(game: TtwGame) -> Dictionary:
 	var rubble: Array = []
 	for heap in game.get_tree().get_nodes_in_group(RUBBLE_GROUP):
 		if game.is_ancestor_of(heap):
-			rubble.append({"at": (heap as Node2D).position, "scale": (heap as Node2D).scale})
+			rubble.append(TtwRubble.record(heap as Sprite2D))
 	data["rubble"] = rubble
 	return data
 
@@ -193,12 +193,12 @@ static func apply(game: TtwGame, data: Dictionary) -> void:
 			if target != null:
 				session.link(entity, load(link.relation), target)
 	for heap in data.rubble:
-		var sprite := Sprite2D.new()
-		sprite.texture = TtwStructure2D.RUBBLE
-		sprite.position = heap.at
-		sprite.scale = heap.scale
-		sprite.add_to_group(RUBBLE_GROUP)
-		game.units.add_child(sprite)
+		if heap.has("foot"):
+			TtwRubble.restore(game.units, heap)
+		else:
+			# A save from before the heaps were pictures: its old heap was
+			# 32 px high, scaled, centred on `at`.
+			TtwRubble.restore(game.units, {"foot": heap.at + Vector2(0, heap.scale.y * 16.0), "variant": 0})
 	game.set("_spawned", data.spawned)
 	game.set("_props", data.props)
 

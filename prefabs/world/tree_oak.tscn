@@ -4,7 +4,8 @@
 [ext_resource type="Script" path="res://game/components/health.gd" id="2"]
 [ext_resource type="Script" path="res://game/components/obstacle.gd" id="3"]
 [ext_resource type="Script" path="res://game/components/tree.gd" id="4"]
-[ext_resource type="Texture2D" path="res://assets/world/tree_oak_0.png" id="5"]
+[ext_resource type="Texture2D" path="res://assets/world/oak_1.png" id="v1"]
+[ext_resource type="Texture2D" path="res://assets/world/oak_2.png" id="v2"]
 
 [sub_resource type="Resource" id="health"]
 script = ExtResource("2")
@@ -26,4 +27,5 @@ health = SubResource("health")
 obstacle = SubResource("obstacle")
 fuel = 18.0
 tree = SubResource("tree")
-art = ExtResource("5")
+art = ExtResource("v1")
+variants = Array[Texture2D]([ExtResource("v1"), ExtResource("v2")])

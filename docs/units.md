@@ -3,7 +3,7 @@
 Every unit is a chassis (a prefab under `prefabs/unit/`) with a kit fitted
 when it is built (`TtwProduction.UNITS`: `unit` and `kit`; `TtwKits.parts`).
 A kind with sprites of its own names them as `art` (`assets/units/<art>/`,
-the wrecker's); `TtwUnits.dress` gives them to its body when it is spawned
+the wrecker's and the tanker's); `TtwUnits.dress` gives them to its body when it is spawned
 and when a save is loaded. It carries `TtwUnit` (the kind it was built as) and `TtwTeam`, and is spawned
 through `TtwUnits.spawn` by the game, the garages and the tests alike. Every
 rule here has a test (`tests/unit/test_combat.gd`, `test_helicopters.gd`,

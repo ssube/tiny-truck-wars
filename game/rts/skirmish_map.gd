@@ -95,8 +95,11 @@ static func layout() -> Array[Dictionary]:
 	TtwMaps.neutral_depot(out, Vector2(RIVER_X + 9.0, SIZE.y - 5.0))
 	TtwMaps.neutral_depot(out, Vector2(RIVER_X - 9.0, mid))
 	TtwMaps.neutral_depot(out, Vector2(RIVER_X + 9.0, mid))
+	# Two farms by the fords, a pair of houses each.
 	out.append({"kind": &"house", "at": Vector2(RIVER_X - 14.0, FORDS[0] + 4.0) * tile})
-	out.append({"kind": &"house", "at": Vector2(RIVER_X + 14.0, FORDS[1] - 4.0) * tile})
+	out.append({"kind": &"house_c", "at": Vector2(RIVER_X - 19.0, FORDS[0] + 5.5) * tile})
+	out.append({"kind": &"house_b", "at": Vector2(RIVER_X + 14.0, FORDS[1] - 4.0) * tile})
+	out.append({"kind": &"house_d", "at": Vector2(RIVER_X + 19.0, FORDS[1] - 5.5) * tile})
 	return out
 
 ## Spring: mild, a breeze.

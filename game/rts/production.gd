@@ -6,7 +6,7 @@ class_name TtwProduction extends RefCounted
 const UNITS := {
 	&"tank": {"fuel": 120.0, "seconds": 12.0},
 	&"wrecker": {"fuel": 60.0, "seconds": 8.0, "unit": &"truck", "kit": &"wrecker", "art": "wrecker"},
-	&"tanker": {"fuel": 50.0, "seconds": 8.0, "unit": &"truck", "kit": &"tanker"},
+	&"tanker": {"fuel": 50.0, "seconds": 8.0, "unit": &"truck", "kit": &"tanker", "art": "tanker"},
 	&"engineer": {"fuel": 70.0, "seconds": 9.0, "unit": &"truck", "kit": &"engineer"},
 	&"water_tanker": {"fuel": 50.0, "seconds": 8.0, "unit": &"truck", "kit": &"water"},
 	&"hippy": {"fuel": 40.0, "seconds": 6.0},

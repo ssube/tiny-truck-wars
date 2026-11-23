@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://game/world/building_2d.gd" id="1"]
 [ext_resource type="Script" path="res://game/components/health.gd" id="2"]
 [ext_resource type="Script" path="res://game/components/obstacle.gd" id="3"]
-[ext_resource type="Texture2D" path="res://assets/world/house.png" id="5"]
+[ext_resource type="Texture2D" path="res://assets/world/farmhouse_1.png" id="5"]
 
 [sub_resource type="Resource" id="health"]
 script = ExtResource("2")
@@ -12,8 +12,8 @@ max_health = 250.0
 [sub_resource type="Resource" id="obstacle"]
 script = ExtResource("3")
 shape = 1
-half_extents = Vector2(27.0, 13.5)
-offset = Vector2(0.0, -13.5)
+half_extents = Vector2(28.0, 11.0)
+offset = Vector2(0.0, -11.0)
 ram_speed = 9999.0
 ram_weight = 99.0
 height_px = 16.0

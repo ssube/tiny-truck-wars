@@ -8,6 +8,9 @@ const STUMP := preload("res://assets/world/stump.png")
 const FALL_SECONDS := 0.7
 
 @export var art: Texture2D = preload("res://assets/world/tree_oak_0.png")
+## Pictures to choose from instead of `art`, by where the tree stands (the
+## same spot, the same tree, in a loaded save too).
+@export var variants: Array[Texture2D] = []
 @export var tree: TtwTree
 
 var _pivot: Node2D
@@ -21,10 +24,15 @@ func kit_components() -> Array[Component]:
 func _ready() -> void:
 	_pivot = Node2D.new()
 	add_child(_pivot)
+	if not variants.is_empty():
+		var spot := Vector2i(position.round())
+		art = variants[posmod(hash(spot), variants.size())]
 	_sprite = Sprite2D.new()
 	_sprite.texture = art
 	_sprite.centered = false
-	_sprite.position = Vector2(-art.get_width() * 0.5, -art.get_height() + 2)
+	# The trunk's foot, the picture's lowest row, on the tree's position.
+	var used := art.get_image().get_used_rect()
+	_sprite.position = Vector2(-art.get_width() * 0.5, -(used.end.y - 1) + 1)
 	var m := ShaderMaterial.new()
 	m.shader = SWAY
 	m.set_shader_parameter("lean_pixels", 2.0)

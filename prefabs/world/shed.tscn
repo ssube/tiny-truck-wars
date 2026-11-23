@@ -3,7 +3,10 @@
 [ext_resource type="Script" path="res://game/world/building_2d.gd" id="1"]
 [ext_resource type="Script" path="res://game/components/health.gd" id="2"]
 [ext_resource type="Script" path="res://game/components/obstacle.gd" id="3"]
-[ext_resource type="Texture2D" path="res://assets/world/shed.png" id="5"]
+[ext_resource type="Texture2D" path="res://assets/world/shed_1.png" id="v1"]
+[ext_resource type="Texture2D" path="res://assets/world/shed_2.png" id="v2"]
+[ext_resource type="Texture2D" path="res://assets/world/shed_3.png" id="v3"]
+[ext_resource type="Texture2D" path="res://assets/world/shed_4.png" id="v4"]
 
 [sub_resource type="Resource" id="health"]
 script = ExtResource("2")
@@ -12,8 +15,8 @@ max_health = 150.0
 [sub_resource type="Resource" id="obstacle"]
 script = ExtResource("3")
 shape = 1
-half_extents = Vector2(19.0, 10.0)
-offset = Vector2(0.0, -10.0)
+half_extents = Vector2(14.0, 7.0)
+offset = Vector2(0.0, -7.0)
 ram_speed = 9999.0
 ram_weight = 99.0
 height_px = 10.0
@@ -23,4 +26,5 @@ script = ExtResource("1")
 health = SubResource("health")
 obstacle = SubResource("obstacle")
 fuel = 10.0
-art = ExtResource("5")
+art = ExtResource("v1")
+variants = Array[Texture2D]([ExtResource("v1"), ExtResource("v2"), ExtResource("v3"), ExtResource("v4")])

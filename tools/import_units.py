@@ -21,6 +21,7 @@ UNITS = {
     "boss": "d14e4b58", "nurse": "e2a60da7",
     # The wrecker is a state of its own character (the others are its first).
     "wrecker": ("a86ec024", "as_a_tow_truck"),
+    "tanker": ("ded1c0eb", "Idle"),
 }
 STRUCTURES = {"garage": "013cc06a", "depot": "ef9e255e", "helipad": "cf233dc2"}
 

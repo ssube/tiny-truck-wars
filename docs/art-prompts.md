@@ -17,6 +17,15 @@ bold patches of wear, dark outlines, broad pixel clusters.
 | Boss (black state limousine) | character | 56 | d14e4b58-4e3a-4cf0-a5e2-d27403a8492b |
 | Nurse (UAZ-452 field ambulance) | character | 48 | e2a60da7-90aa-40f0-86d2-efe80e937801 |
 | Wrecker (the truck as a tow truck: state `as_a_tow_truck`) | character | 48 | a86ec024-6a64-45af-ae88-755a9dbe9608 |
+| Fuel tanker (ZIL-131: state `Idle`) | character | 48 | ded1c0eb-3b53-418a-9a66-313a6e854f5e |
+| Farmhouse 1 (`house`) | object | 64 | 53c75a7c-d1dc-498b-889b-f0cf0dc1c045 |
+| Farmhouse 2 (`house_b`) | object | 64 | 777ff61c-6eaa-478a-bbfa-ffcaa507beac |
+| Farmhouse 3 (`house_c`) | object | 64 | 67c7f9dc-40f6-4200-b1ba-2051cb854d96 |
+| Farmhouse 4 (`house_d`) | object | 64 | 754537de-84ba-4eb9-9b26-22b38d5d6679 |
+| Oaks 1, 2 (`tree_oak`), 3, 4 (`tree_oak_b`) | object | 48 | 719c1abd-d7dc-43ac-921c-82c1ee47cc5c, 50b4e178-de18-440e-8444-9fdd33eefb09, 4c036f41-35c8-4e22-b95c-30b17c1f852e, 14884921-58a6-4bec-9717-c96616742efe |
+| Pines 1 to 4 (`tree_pine`) | object | 48 | 27174d21-8578-44b0-ba61-00d4d538875f, 809418fa-92b8-4863-a1ed-18ec68b5143b, fff05bd5-e6fe-4c61-b563-f93f1d771997, d508b564-c0c6-4465-b83c-f0b047ae5567 |
+| Sheds 1 to 4 (`shed`) | object | 32 | cc68bf7f-da52-4eb8-b7ff-3e4f8c92516b, f7b45a8e-a9fc-4713-bd39-477b030ae25d, 8b31250f-cc16-4938-adf1-a83a37134854, 2e3432c2-1ef5-4ddc-8448-4984612bb6ad |
+| Rubble 1 to 4 (`TtwRubble`) | object | 64 | ec833ff3-c752-4dc8-bfcb-d73a36d410a9, 90567f0a-7b6a-49c0-8b0d-50eb2e6d4e3a, 1a992921-a713-4c28-9848-ed4af51df3ad, 4198c2fa-7f18-4bd3-99dc-ba64e27f8d09 |
 | Garage | object | 68 | 013cc06a-530f-4b65-960f-833f8c2149f8 |
 | Fuel depot | object | 68 | ef9e255e-2cd4-401e-9004-db3b372e38c2 |
 | Helipad | object | 68 | cf233dc2-4998-451c-9159-87e1f6dde041 |
@@ -168,13 +177,13 @@ and building footprint from them (`prefabs/world/`), so a new sprite of a
 different size needs its prefab's footprint checked. Neither army's colours
 or markings: rural Eastern European countryside that suits both.
 
-### Oak tree (two of them), 40 × 56
+### Oak tree (two of them), 40 × 56 (made: four, 48 × 48, above)
 
 > A broad leafy oak tree in crisp pixel art, seen from a slightly elevated front view. A thick, slightly crooked brown trunk with a short root flare, and a big rounded crown of dark and mid greens in a few chunky lobes, lit from the top left. Dark outlines, broad pixel clusters, and a muted palette that sits on grass and mud without blending in. The trunk's base sits at the bottom center. Full tree on a transparent background.
 
 > A second, smaller leafy oak tree in crisp pixel art, seen from a slightly elevated front view. A thinner trunk leaning slightly, and a lopsided crown of two or three rounded clumps of dark and mid green with a gap of sky between them, lit from the top left. Dark outlines, broad pixel clusters, muted palette. The trunk's base sits at the bottom center. Full tree on a transparent background.
 
-### Pine tree, 40 × 56
+### Pine tree, 40 × 56 (made: four, 48 × 48, above)
 
 > A tall dark pine tree in crisp pixel art, seen from a slightly elevated front view. A narrow straight brown trunk showing at the bottom, and four or five stacked triangular tiers of deep blue-green needles that widen toward the base, each tier edged with a lighter highlight on the top left. Dark outlines, broad pixel clusters, muted palette that reads on both snow and grass. The trunk's base sits at the bottom center. Full tree on a transparent background.
 
@@ -186,11 +195,11 @@ or markings: rural Eastern European countryside that suits both.
 
 > A small tree stump in crisp pixel art, seen from a slightly elevated view. A short brown bark ring with a jagged, splintered pale top where the tree snapped off, and a little root flare at the base. Dark outlines, very few colors so it reads at a tiny size. Full stump on a transparent background.
 
-### Farmhouse, 56 × 44
+### Farmhouse, 56 × 44 (made: four, 64 × 64, above)
 
 > A small rural Eastern European farmhouse in crisp pixel art, seen from a slightly elevated front view. Whitewashed plaster walls with a few bare patches of brick, a steep red-brown tiled roof, a short brick chimney, a plain wooden door in the middle, and four small square windows with blue-painted frames. Muted colors, dark outlines, broad pixel clusters, bold rectangular shapes. Full building on a transparent background.
 
-### Wooden shed, 40 × 32
+### Wooden shed, 40 × 32 (made: four, 32 × 32, above)
 
 > A small weathered wooden farm shed in crisp pixel art, seen from a slightly elevated front view. Gray-brown vertical plank walls, a sagging corrugated tin roof with rust streaks, a single plank door hanging slightly askew, and a woodpile stacked against one side. Muted colors, dark outlines, broad pixel clusters. Full building on a transparent background.
 
@@ -198,7 +207,7 @@ or markings: rural Eastern European countryside that suits both.
 
 > A long single-storey military barracks in crisp pixel art, seen from a slightly elevated front view. Pale gray-green painted wooden walls, a low pitched roof of dark tar paper, a row of six evenly spaced small windows, a central door under a short porch roof, and a stovepipe on the roof. No flags or national markings. Muted colors, dark outlines, broad pixel clusters, bold horizontal shapes. Full building on a transparent background.
 
-### Rubble, 56 × 32
+### Rubble, 56 × 32 (made: four, 64 × 64, above)
 
 > A low heap of building rubble in crisp pixel art, seen from a slightly elevated view. Broken chunks of whitewashed plaster and red brick, a few charred and snapped roof beams sticking out at angles, scattered roof tiles, and gray dust around the edges. Low and wide, no taller than a third of its width. Muted colors with a few dark scorch patches, dark outlines, broad pixel clusters. Full heap on a transparent background.
 

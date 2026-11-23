@@ -76,6 +76,17 @@ func test_a_destroyed_building_leaves_a_crater_and_rubble() -> void:
 	assert_object(game.session.resolve(str(house.alias))).is_null()
 	assert_int(game.terrain.material_at(center)).is_equal(TtwMaterials.GRAVEL)
 	assert_float(game.terrain.cell_value(TtwTerrain.Layer.SCORCH, game.terrain.cell_of(center))).is_greater(0.0)
+	# A heap stands on the footprint's front edge, its foot there whatever
+	# picture it got, and a save brings the same heap back.
+	var heaps := get_tree().get_nodes_in_group(TtwSave.RUBBLE_GROUP)
+	assert_int(heaps.size()).is_equal(1)
+	var heap: Sprite2D = heaps[0]
+	var used := heap.texture.get_image().get_used_rect()
+	var foot := heap.position + Vector2(used.get_center().x, used.end.y - 1)
+	assert_vector(foot).is_equal_approx(center + Vector2(0, o.half_extents.y), Vector2(1, 1))
+	var again := TtwRubble.restore(game.units, TtwRubble.record(heap))
+	assert_vector(again.position).is_equal(heap.position)
+	assert_object(again.texture).is_same(heap.texture)
 
 func test_a_tree_in_a_burning_tile_burns_down() -> void:
 	var at := Vector2(240, 560)
@@ -88,3 +99,43 @@ func test_a_tree_in_a_burning_tile_burns_down() -> void:
 	var seconds := health.max_health / TtwFireSystem.BURN_DAMAGE
 	await _ticks(ceili(seconds * 60.0) + TtwFireSystem.STEP_TICKS * 4)
 	assert_bool(health.destroyed).is_true()
+
+## Every building's footprint (what blocks vehicles and shells) lies within
+## its picture, standing on the picture's foot: a new sprite of another size
+## with the old footprint would block ground that shows nothing, or let
+## vehicles drive through walls.
+func test_every_building_stands_inside_its_picture() -> void:
+	for kind in TtwGame.PROP_SCENES:
+		var body := (load(TtwGame.PROP_SCENES[kind]) as PackedScene).instantiate()
+		if body is TtwBuilding2D:
+			var b := body as TtwBuilding2D
+			var pictures: Array[Texture2D] = [b.art]
+			pictures.append_array(b.variants)
+			# The narrowest of its pictures.
+			var used := Rect2i(0, 0, 1 << 20, 1 << 20)
+			for picture in pictures:
+				var r := picture.get_image().get_used_rect()
+				used.size = Vector2i(mini(used.size.x, r.size.x), mini(used.size.y, r.size.y))
+			var o: TtwObstacle = b.obstacle
+			assert_float(o.half_extents.x * 2.0).override_failure_message("%s: footprint %s wider than its picture %s" % [kind, o.half_extents.x * 2.0, used.size.x]).is_less_equal(used.size.x)
+			# The footprint's front edge is the picture's foot (origin).
+			assert_float(o.offset.y + o.half_extents.y).override_failure_message("%s: footprint not on its foot" % kind).is_equal_approx(0.0, 0.01)
+			assert_float(o.half_extents.y * 2.0).is_less_equal(used.size.y)
+		body.free()
+
+## A tree with several pictures shows one of them chosen by where it stands
+## (a loaded save, which puts it back on its spot, shows the same tree), its
+## trunk's foot on that spot.
+func test_a_tree_picks_its_picture_by_its_spot() -> void:
+	var seen := {}
+	for k in 12:
+		var at := Vector2(100 + k * 37, 300)
+		var tree := game.session.body_of(game.spawn_prop(&"tree_pine", at)) as TtwTree2D
+		assert_bool(tree.variants.has(tree.art)).is_true()
+		seen[tree.art] = true
+		var again := game.session.body_of(game.spawn_prop(&"tree_pine", at)) as TtwTree2D
+		assert_object(again.art).is_same(tree.art)
+		var sprite: Sprite2D = tree.get_child(0).get_child(0)
+		var used := tree.art.get_image().get_used_rect()
+		assert_float(sprite.position.y + used.end.y - 1).is_equal(1.0)
+	assert_int(seen.size()).is_greater(1)

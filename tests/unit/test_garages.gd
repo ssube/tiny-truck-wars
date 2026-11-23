@@ -52,7 +52,9 @@ func test_a_kit_with_its_own_art_is_drawn_with_it() -> void:
 	var body := world.session.body_of(wrecker) as TtwVehicle2D
 	assert_str(body.art).is_equal("wrecker")
 	assert_str(body.sprite.texture.resource_path).is_equal("res://assets/units/wrecker/east.png")
-	assert_str((world.session.body_of(tanker) as TtwVehicle2D).art).is_equal("truck")
+	assert_str((world.session.body_of(tanker) as TtwVehicle2D).art).is_equal("tanker")
+	var engineer := world.spawn(&"engineer", Vector2(400, 200))
+	assert_str((world.session.body_of(engineer) as TtwVehicle2D).art).is_equal("truck")
 	# Changed after it is drawn (a loaded save), the sprite follows.
 	body.art = "truck"
 	assert_str(body.sprite.texture.resource_path).is_equal("res://assets/units/truck/east.png")

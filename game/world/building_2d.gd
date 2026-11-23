@@ -3,9 +3,11 @@ class_name TtwBuilding2D extends TtwProp2D
 ## cracks, then its roof breaks; destroyed, it collapses: a crater, rubble
 ## (broken ground: gravel, heaped up), dust, debris and fire.
 
-const RUBBLE := preload("res://assets/world/rubble.png")
 
 @export var art: Texture2D = preload("res://assets/world/house.png")
+## Pictures to choose from instead of `art`, by where it stands (the same
+## spot, the same building, in a loaded save too).
+@export var variants: Array[Texture2D] = []
 
 var _sprite: Sprite2D
 var _damage: float = 0.0
@@ -16,6 +18,8 @@ func kit_components() -> Array[Component]:
 	return mine
 
 func _ready() -> void:
+	if not variants.is_empty():
+		art = variants[posmod(hash(Vector2i(position.round())), variants.size())]
 	_sprite = Sprite2D.new()
 	_sprite.texture = art
 	_sprite.centered = false
@@ -61,12 +65,7 @@ func destroyed(_from: Vector2) -> void:
 		for k in 10:
 			var at := center + Vector2(rng.randf_range(-1, 1) * o.half_extents.x, rng.randf_range(-1, 1) * o.half_extents.y)
 			TtwBrushes.paint(t, TtwBrushes.Kind.RAISE, at, rng.randf_range(4, 8), rng.randf_range(1.0, 2.5))
-		var heap := Sprite2D.new()
-		heap.texture = RUBBLE
-		heap.add_to_group(TtwSave.RUBBLE_GROUP)
-		heap.position = center
-		heap.scale = Vector2(o.half_extents.x * 2.0 / RUBBLE.get_width(), o.half_extents.y * 2.0 / RUBBLE.get_height())
-		get_parent().add_child(heap)
+		TtwRubble.heap(get_parent(), center, o.half_extents, get_instance_id())
 		g.fx.explode(center, &"building")
 		var field := TtwGround.fire_of(session)
 		if field != null:

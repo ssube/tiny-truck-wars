@@ -8,6 +8,9 @@ const PROP_SCENES := {
 	&"tree_pine": "res://prefabs/world/tree_pine.tscn",
 	&"log": "res://prefabs/world/log.tscn",
 	&"house": "res://prefabs/world/house.tscn",
+	&"house_b": "res://prefabs/world/house_b.tscn",
+	&"house_c": "res://prefabs/world/house_c.tscn",
+	&"house_d": "res://prefabs/world/house_d.tscn",
 	&"shed": "res://prefabs/world/shed.tscn",
 	&"barracks": "res://prefabs/world/barracks.tscn",
 }
