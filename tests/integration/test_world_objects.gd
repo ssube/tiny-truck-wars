@@ -144,7 +144,7 @@ func test_a_tree_picks_its_picture_by_its_spot() -> void:
 ## A wrecker's beacon lights the ground and water around it: a light on the
 ## ground effects layer (under the units, over the terrain and its water),
 ## flashing with the beacon (the same phase), carried along as it moves,
-## and dark once it is a wreck.
+## and dark, with the beacon, once it is destroyed.
 func test_a_wreckers_beacon_lights_the_ground_around_it() -> void:
 	var at := Vector2(300, 400)
 	var wrecker := game.spawn_unit(&"wrecker", at, 0.0, 1)
@@ -170,8 +170,12 @@ func test_a_wreckers_beacon_lights_the_ground_around_it() -> void:
 	assert_bool(carry.update_position).is_true()
 	assert_bool(carry.update_rotation).is_false()
 	assert_bool(carry.update_scale).is_false()
-	wrecker.add_component(TtwWrecked.new())
+	# Destroyed by a shot: it goes up, stays as a wreck, and its beacon stops
+	# flashing (the sprite's pixels and the light both).
+	TtwDamage.hurt(game.session, wrecker, 1.0e6, at - Vector2(40, 0))
+	assert_bool(wrecker.has_component(TtwWrecked)).is_true()
 	body._process(0.0)
+	assert_float(body.sprite.material.get_shader_parameter("beacon")).is_equal(0.0)
 	assert_bool(light.visible).is_false()
 	# Gone with the wrecker, as its body leaves the tree.
 	var gone := UI.observe(body.tree_exited)
