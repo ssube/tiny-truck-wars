@@ -6,6 +6,8 @@ class_name TtwTree2D extends TtwProp2D
 const SWAY := preload("res://shaders/wind_sway.gdshader")
 const STUMP := preload("res://assets/world/stump.png")
 const FALL_SECONDS := 0.7
+## How far the wind leans a crown, in texels, per 20 px/s of wind.
+const LEAN_PIXELS := 3.0
 
 @export var art: Texture2D = preload("res://assets/world/tree_oak_0.png")
 ## Pictures to choose from instead of `art`, by where the tree stands (the
@@ -35,7 +37,10 @@ func _ready() -> void:
 	_sprite.position = Vector2(-art.get_width() * 0.5, -(used.end.y - 1) + 1)
 	var m := ShaderMaterial.new()
 	m.shader = SWAY
-	m.set_shader_parameter("lean_pixels", 2.0)
+	m.set_shader_parameter("lean_pixels", LEAN_PIXELS)
+	# Room for the lean past the picture's sides (the dunes' wind leans a
+	# top `LEAN_PIXELS` x 2.5), so a crown is not cut at its edge.
+	m.set_shader_parameter("grow_pixels", ceilf(LEAN_PIXELS * 2.5))
 	m.set_shader_parameter("rest_v", 0.75)
 	m.set_shader_parameter("full_v", 0.1)
 	_sprite.material = m
