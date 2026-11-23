@@ -217,6 +217,32 @@ All of it was checked against a run of the probe's scene on fixed ticks
 water's depths and fluxes, the settling queue and each vehicle's state: every
 change after the first leaves every hash as it was.
 
+### Tracks in winter (perf/tracks)
+
+`KIT_PERF_WINTER=1 ./run-probe.sh res://tests/render/perf_probe.tscn`: the
+same scene (`tests/support/perf_scene.gd`) with snow on every tile and 40
+oil spills, so every press also packs snow and most smear oil. Tracks, µs
+per tick, three runs before and two after in one sitting:
+
+| Scene | before | after |
+| --- | ---: | ---: |
+| Winter | 3019 to 3047 | 2663 to 2681 |
+| Mud | 2300 to 2452 | 2450 to 2540 (the machine; the press is unchanged, below) |
+
+The snow press and the oil smear tested every cell of a square around the
+patch and read the cell size from the project settings each call. They now
+test only the cells of their strip (`TtwStamps.strip_cells`, the bounds the
+mud press already used), and the snow depth is read inline. A mud press
+through the shared bounds costs what it did (16.9 µs either way in one
+process, 20,000 presses each).
+
+What a mud press costs, measured on copies of it in one process (20,000
+presses of 2 to 4 px at random headings, the probe's sizes): 1.4 µs to set
+up (bounds, four arrays), 1.2 µs to visit about 74 cells doing nothing,
+7.7 µs to test them and append the 36 that get something, and about 4 µs to
+write the footprint, spread the rest, queue the settling and mark the
+chunks (`mark_cells` 0.6 to 1.0 of it; its signal 0.06).
+
 ### Mechanics and the RTS shell (feat/mechanics)
 
 The same probe, a third of the vehicles driving routes: pilot 246 µs a tick
@@ -503,6 +529,24 @@ A float that must match the old arithmetic exactly is kept in a
   would copy the map's full width three times (590 KB a layer on a
   128-tile map); not measured, and `ImageTexture` has no update of part of
   a texture.
+- **A press writing its footprint as the scan finds it** (one loop, the
+  tile's row worked out once per row) instead of collecting the footprint
+  and looping again: 15.15 µs a press against 15.28, 0.5%.
+- **A press's cell test from per-column offsets** (each column's centre
+  less the patch's worked out once, the row's once per row), in float32 as
+  before or with the dot products in doubles: 10.6 and 10.5 µs for the scan
+  against 10.4. The interpreter's cost per cell is in the visit and the
+  branches, not the arithmetic.
+- **A press's four cell lists kept between presses** (`static var`,
+  emptied each press) instead of made new: about 3% of a press, some 60 µs
+  a tick in the probe, inside its spread. Not kept.
+- **Tracks: the per-vehicle work trimmed** (wrecks left out by the query
+  instead of `has_component`, contacts written into one kept array, the
+  cell and tile under the hull as integers): 2.98 µs a vehicle against
+  3.14 without a press, plus 0.15 for the `has_component`; about 25 µs a
+  tick for 84 vehicles. Not kept.
+- **Skipping `cells_changed` when nothing listens**: the emit is 0.06 µs.
+  Not done.
 - **Not tried: a press's cell test in doubles, summed per row and column.**
   The test is float32 (`Vector2`), and a cell exactly on an edge (a berm
   5 px from an axis-aligned patch) can fall on the other side in doubles, so
@@ -510,10 +554,14 @@ A float that must match the old arithmetic exactly is kept in a
 
 ### What is left, and why
 
-- **Tracks, 2.5 ms.** About 136 presses a tick at 13 to 14 µs: half testing
-  some 70 cells, most of the rest writing the 33 that get something. Plus
-  about 6 µs per vehicle a tick that no press needs (contacts, depth under
-  each, the hull's water and grime). GDScript's floor for this shape.
+- **Tracks, 2.4 ms on mud, 2.7 in winter.** About 136 presses a tick at
+  14 to 15 µs, two thirds of it testing some 74 cells and appending the 36
+  that get something (perf/tracks, above), plus about 3 µs per vehicle a
+  tick that no press needs. Every way tried of doing the same work in
+  fewer GDScript steps came to under 5% of a press. What is left is doing
+  less: fewer presses (one per wheel line instead of one per wheel), fewer
+  cells (a narrower spray), or the press in native code. Each would change
+  what the ground gets, or the build.
 - **Settle, 1.4 ms.** 1630 visits at about 0.9 µs. 38,912 of the queued
   cells are the river's and never leave: they stay soaked, and its bed is
   sand cut into `deform`, which springs back a little every visit

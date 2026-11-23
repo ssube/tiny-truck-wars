@@ -30,6 +30,47 @@ func test_a_pass_packs_the_snow_and_heaps_berms_beside_it() -> void:
 	assert_bool(TtwSnow.is_packed(t, t.cell_index(t.cell_of(at)))).is_true()
 	assert_float(TtwSnow.depth(t, at + Vector2(0, 4.5))).is_greater(4.0)
 
+func test_passes_at_any_angle_pack_only_under_them_and_berms_take_a_share_beside_them() -> void:
+	var wrong: PackedStringArray = []
+	var berms := 0
+	for k in 24:
+		for offset in [Vector2(0.0, 0.0), Vector2(0.7, 0.3), Vector2(1.3, 1.9), Vector2(0.95, 1.05)]:
+			var t := _snowy(Vector2i(6, 6), 4.0)
+			var center: Vector2 = Vector2(48, 48) + offset
+			var heading := k * PI / 12.0
+			var along := Vector2.from_angle(heading)
+			var side := along.orthogonal()
+			TtwSnow.press(t, center, heading, 6.0, 4.0)
+			var packed := 0.0
+			var heaped := 0.0
+			for y in t.size_cells.y:
+				for x in t.size_cells.x:
+					var i := y * t.size_cells.x + x
+					var d := (Vector2(x, y) + Vector2(0.5, 0.5)) * t.cell_size_px - center
+					var u := absf(d.dot(along))
+					var v := absf(d.dot(side))
+					var gone := t.snow_gone[i]
+					if gone > 0.0:
+						packed += gone
+					else:
+						heaped -= gone
+					# Cells near an edge of the parts are left out.
+					if absf(u - 3.0) < 0.2 or absf(v - 2.0) < 0.2 or absf(v - 2.0 - TtwSnow.BERM_PX) < 0.2:
+						continue
+					var ok := true
+					if u < 3.0 and v < 2.0:
+						ok = is_equal_approx(gone, 4.0 * TtwSnow.PACK)
+					elif u < 3.0 and v < 2.0 + TtwSnow.BERM_PX:
+						ok = gone < 0.0
+						berms += 1
+					else:
+						ok = gone == 0.0
+					if not ok:
+						wrong.append("at %s heading %.2f: cell %s has %f gone" % [center, heading, Vector2i(x, y), gone])
+			assert_float(heaped).is_equal_approx(packed * TtwSnow.ASIDE, 0.0001)
+	assert_array(Array(wrong)).is_empty()
+	assert_int(berms).is_greater(0)
+
 func test_the_thaw_follows_the_temperature_and_stops_below_freezing() -> void:
 	var w := TtwWeather.new()
 	w.temperature = -3.0

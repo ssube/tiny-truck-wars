@@ -49,25 +49,14 @@ static func press(t: TtwTerrain, center: Vector2, heading: float, length_px: flo
 	var berm: PackedInt32Array = []
 	var bow: PackedInt32Array = []
 	var spray: PackedInt32Array = []
-	var reach := half_l + SPRAY_PX + BERM_PX + cell_px
-	var lo := t.cell_of(center - Vector2(reach, reach)).clamp(Vector2i.ZERO, t.size_cells - Vector2i.ONE)
-	var hi := t.cell_of(center + Vector2(reach, reach)).clamp(Vector2i.ZERO, t.size_cells - Vector2i.ONE)
 	# Every cell that gets anything lies in the strip from the end of the spray
-	# to the end of the bow, a berm wide on each side. Only the cells whose
-	# centres can be in that strip are looked at: its bounds along x and y
-	# (grown by SLACK_PX, so rounding never drops a cell on its edge), inside
-	# the box above.
+	# to the end of the bow, a berm wide on each side.
 	var back := -half_l - SPRAY_PX
 	var front := half_l + BOW_PX
 	var across := half_w + BERM_PX
-	var span_x := absf(side.x) * across + SLACK_PX
-	var span_y := absf(side.y) * across + SLACK_PX
-	lo = lo.max(Vector2i(
-		ceili((center.x + minf(along.x * back, along.x * front) - span_x) / cell_px - 0.5),
-		ceili((center.y + minf(along.y * back, along.y * front) - span_y) / cell_px - 0.5)))
-	hi = hi.min(Vector2i(
-		floori((center.x + maxf(along.x * back, along.x * front) + span_x) / cell_px - 0.5),
-		floori((center.y + maxf(along.y * back, along.y * front) + span_y) / cell_px - 0.5)))
+	var cells := strip_cells(t, center, along, back, front, across)
+	var lo := cells.position
+	var hi := cells.end - Vector2i.ONE
 	var width := t.size_cells.x
 	for y in range(lo.y, hi.y + 1):
 		var row := y * width
@@ -138,6 +127,23 @@ static func press(t: TtwTerrain, center: Vector2, heading: float, length_px: flo
 	_spread_loose(t, spray if not spray.is_empty() else foot, to_spray)
 	t.mark_cells(Rect2i(lo, hi - lo + Vector2i.ONE), PRESS_LAYERS)
 	return carried
+
+## The cells whose centres can lie in a strip along `along`, from `back` to
+## `front` px of `center` and `across` px either side: its bounds along x and
+## y, grown by SLACK_PX so rounding never drops a cell on its edge, held to
+## the map. Only these need the exact test. Empty (no size) off the map.
+static func strip_cells(t: TtwTerrain, center: Vector2, along: Vector2, back: float, front: float, across: float) -> Rect2i:
+	var cell_px := t.cell_size_px
+	var side := along.orthogonal()
+	var span_x := absf(side.x) * across + SLACK_PX
+	var span_y := absf(side.y) * across + SLACK_PX
+	var lo := Vector2i(
+		ceili((center.x + minf(along.x * back, along.x * front) - span_x) / cell_px - 0.5),
+		ceili((center.y + minf(along.y * back, along.y * front) - span_y) / cell_px - 0.5)).max(Vector2i.ZERO)
+	var hi := Vector2i(
+		floori((center.x + maxf(along.x * back, along.x * front) + span_x) / cell_px - 0.5),
+		floori((center.y + maxf(along.y * back, along.y * front) + span_y) / cell_px - 0.5)).min(t.size_cells - Vector2i.ONE)
+	return Rect2i(lo, (hi - lo + Vector2i.ONE).max(Vector2i.ZERO))
 
 ## Blows a crater of `cause` (CRATERS) at `center`: a bowl dug out whatever the
 ## ground, its volume thrown into a rim (70%) and clods of loose mud around it

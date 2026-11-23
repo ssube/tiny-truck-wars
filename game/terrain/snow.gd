@@ -27,36 +27,45 @@ static func is_packed(t: TtwTerrain, cell: int) -> bool:
 static func press(t: TtwTerrain, center: Vector2, heading: float, length_px: float, width_px: float) -> void:
 	var along := Vector2.from_angle(heading)
 	var side := along.orthogonal()
-	var cell_px := TtwTerrain.cell_px()
-	var reach := maxf(length_px, width_px) * 0.5 + BERM_PX + cell_px
-	var lo := t.cell_of(center - Vector2(reach, reach)).clamp(Vector2i.ZERO, t.size_cells - Vector2i.ONE)
-	var hi := t.cell_of(center + Vector2(reach, reach)).clamp(Vector2i.ZERO, t.size_cells - Vector2i.ONE)
-	var foot: PackedInt32Array = []
+	var cell_px := t.cell_size_px
+	var half_l := length_px * 0.5
+	var half_w := width_px * 0.5
+	var across := half_w + BERM_PX
+	# Only the cells that can lie under the patch or its berms are tested.
+	var cells := TtwStamps.strip_cells(t, center, along, -half_l, half_l, across)
+	var lo := cells.position
+	var hi := cells.end - Vector2i.ONE
+	var width := t.size_cells.x
+	var tiles_wide := t.size_tiles.x
+	var snow_base := t.snow_base
+	var snow_gone := t.snow_gone
+	var level := t.snow_level
 	var berm: PackedInt32Array = []
+	var pushed := 0.0
 	for y in range(lo.y, hi.y + 1):
+		var row := y * width
+		var tile_row := (y / TtwTerrain.CELLS_PER_TILE) * tiles_wide
 		for x in range(lo.x, hi.x + 1):
 			var p := (Vector2(x, y) + Vector2(0.5, 0.5)) * cell_px - center
-			var u := absf(p.dot(along))
+			if absf(p.dot(along)) > half_l:
+				continue
 			var v := absf(p.dot(side))
-			if u <= length_px * 0.5:
-				if v <= width_px * 0.5:
-					foot.append(y * t.size_cells.x + x)
-				elif v <= width_px * 0.5 + BERM_PX:
-					berm.append(y * t.size_cells.x + x)
-	var pushed := 0.0
-	for i in foot:
-		var d := depth_at(t, i)
-		if d <= 0.0:
-			continue
-		var packed := d * PACK
-		t.snow_gone[i] += packed
-		pushed += packed * ASIDE
+			if v <= half_w:
+				# Under the patch: packed as it is found (depth_at, inline).
+				var i := row + x
+				var d := maxf(0.0, snow_base[tile_row + x / TtwTerrain.CELLS_PER_TILE] + level - snow_gone[i])
+				if d > 0.0:
+					var packed := d * PACK
+					snow_gone[i] += packed
+					pushed += packed * ASIDE
+			elif v <= across:
+				berm.append(row + x)
 	if pushed > 0.0 and not berm.is_empty():
 		var each := pushed / berm.size()
 		for i in berm:
-			t.snow_gone[i] -= each
+			snow_gone[i] -= each
 	if pushed > 0.0:
-		t.mark_cells(Rect2i(lo, hi - lo + Vector2i.ONE))
+		t.mark_cells(cells)
 
 ## A blast throws the snow off a disc (and melts it).
 static func blast(t: TtwTerrain, at: Vector2, radius_px: float) -> void:

@@ -1,15 +1,16 @@
 extends Node
 ## What the ground costs at scale: 100 units of every kind, two sides, driving
 ## and flying over a 128×128-tile map with its river, firing at each other,
-## craters going off. Prints each system's cost per tick
+## craters going off (tests/support/perf_scene.gd). Prints each system's cost per tick
 ## (GECS's own timers), the frame's process and physics time, and how many
 ## chunks were uploaded per frame; writes them to reports/render/perf.txt.
 ## A measurement, not a check: it fails only if the run does.
 ## ./run-probe.sh res://tests/render/perf_probe.tscn
+## KIT_PERF_WINTER=1 lays snow over the map and spills oil, so the snow and
+## oil presses are measured too.
 
 const TICKS := 300
-const VEHICLES := 100
-const KINDS := [&"tank", &"wrecker", &"hippy", &"boss", &"nurse", &"tank", &"gunship", &"tanker", &"engineer", &"water_tanker", &"bucket_heli", &"tank"]
+const PerfScene := preload("res://tests/support/perf_scene.gd")
 
 var lines: PackedStringArray = []
 
@@ -22,26 +23,14 @@ func _ready() -> void:
 
 func _run() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://reports/render"))
-	var game := TtwGame.new()
-	add_child(game)
-	game.load_ground(TtwMapGen.mud_lab(Vector2i(128, 128)))
+	var winter := OS.get_environment("KIT_PERF_WINTER") == "1"
+	var scene := PerfScene.new(self, winter)
+	var game := scene.game
 	game.camera.make_current()
 	game.camera.zoom = Vector2(3, 3)
-	var size := game.terrain.size_px()
+	var size := scene.size
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 11
-	var drives: Array[TtwDrive] = []
-	for k in VEHICLES:
-		var at := Vector2(rng.randf_range(0.05, 0.95) * size.x, rng.randf_range(0.05, 0.95) * size.y)
-		var unit := game.spawn_unit(KINDS[k % KINDS.size()], at, rng.randf() * TAU, 1 + k % 2)
-		var drive: TtwDrive = unit.get_component(TtwDrive)
-		if drive != null:
-			drive.throttle = 1.0
-			drive.steer = rng.randf_range(-0.4, 0.4)
-			drives.append(drive)
-		if k % 3 == 0 or drive == null:
-			# A third drive routes the path grid finds.
-			TtwPilotSystem.order(unit, Vector2(rng.randf_range(0.05, 0.95) * size.x, rng.randf_range(0.05, 0.95) * size.y))
 	var build_from := Time.get_ticks_usec()
 	var grid := TtwPathGrid.new(game.terrain)
 	var build_us := Time.get_ticks_usec() - build_from
@@ -67,14 +56,10 @@ func _run() -> void:
 		process += Performance.get_monitor(Performance.TIME_PROCESS)
 		physics += Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)
 		uploads += game.view.uploads_last_refresh()
-		if frames % 30 == 0:
-			var at := Vector2(rng.randf() * size.x, rng.randf() * size.y)
-			TtwStamps.crater(game.terrain, at, &"rocket")
-			game.fx.explode(at, &"rocket")
 		game.camera.position = game.session.body_of(game.session.resolve("unit:tank:1")).position
 	var ticks := game.session.tick - start_tick
 	var wall := (Time.get_ticks_usec() - wall_start) / 1.0e6
-	_line("== %d units on %s tiles, %d ticks, %d frames" % [VEHICLES, str(game.terrain.size_tiles), ticks, frames])
+	_line("== %d units on %s tiles%s, %d ticks, %d frames" % [PerfScene.VEHICLES, str(game.terrain.size_tiles), ", winter" if winter else "", ticks, frames])
 	var total := 0.0
 	for row in systems:
 		var system: System = row[1]
@@ -91,7 +76,7 @@ func _run() -> void:
 	file.store_string("\n".join(lines) + "\n")
 	file.close()
 	print("PERF_PROBE: PASS")
-	game.queue_free()
+	scene.free_game()
 	await get_tree().process_frame
 	get_tree().quit(0)
 

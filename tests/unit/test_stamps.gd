@@ -141,3 +141,82 @@ func test_pavement_does_not_slump() -> void:
 	t.set_cell(TtwTerrain.Layer.DEFORM, Vector2i(16, 16), 3.0)
 	assert_bool(TtwSettleSystem.slump(t, at)).is_false()
 	assert_float(t.cell_value(TtwTerrain.Layer.DEFORM, Vector2i(16, 16))).is_equal(3.0)
+
+## Where a cell centre lies around a patch at `center` along `heading`
+## (length `l`, width `w`): &"foot", &"berm", &"bow", &"spray" or &"outside",
+## or &"edge" within `margin` px of a boundary (left out of the checks).
+func _region(p: Vector2, center: Vector2, heading: float, l: float, w: float, margin: float = 0.2) -> StringName:
+	var d := p - center
+	var u := d.dot(Vector2.from_angle(heading))
+	var v := absf(d.dot(Vector2.from_angle(heading).orthogonal()))
+	var hl := l * 0.5
+	var hw := w * 0.5
+	var across := hw + TtwStamps.BERM_PX
+	for edge in [absf(u - hl), absf(u + hl), absf(u - hl - TtwStamps.BOW_PX), absf(u + hl + TtwStamps.SPRAY_PX), absf(v - hw), absf(v - across)]:
+		if edge < margin:
+			return &"edge"
+	if v > across:
+		return &"outside"
+	if u < -hl:
+		return &"spray" if u >= -hl - TtwStamps.SPRAY_PX else &"outside"
+	if u <= hl:
+		return &"foot" if v <= hw else &"berm"
+	if u <= hl + TtwStamps.BOW_PX and v <= hw:
+		return &"bow"
+	return &"outside"
+
+## Patches at every 15° and at several places within a cell, for the
+## checks that every cell a patch reaches gets its share and no other cell
+## anything.
+func _patches() -> Array:
+	var out := []
+	for k in 24:
+		for offset in [Vector2(0.0, 0.0), Vector2(0.7, 0.3), Vector2(1.3, 1.9), Vector2(0.95, 1.05)]:
+			out.append([Vector2(48, 48) + offset, k * PI / 12.0])
+	return out
+
+func test_a_press_sinks_its_footprint_and_throws_berms_bow_and_spray_and_touches_nothing_else() -> void:
+	var wrong: PackedStringArray = []
+	var seen := {}
+	for patch in _patches():
+		var center: Vector2 = patch[0]
+		var heading: float = patch[1]
+		var t := Fixture.flat(Vector2i(6, 6), TtwMaterials.MUD)
+		var carried := TtwStamps.press(t, center, heading, 6.0, 4.0, 1.2, 0.0, 0.0)
+		for y in t.size_cells.y:
+			for x in t.size_cells.x:
+				var i := y * t.size_cells.x + x
+				var region := _region((Vector2(x, y) + Vector2(0.5, 0.5)) * t.cell_size_px, center, heading, 6.0, 4.0)
+				seen[region] = seen.get(region, 0) + 1
+				var ok := true
+				match region:
+					&"foot":
+						ok = t.deform[i] < 0.0 and t.track[i] == 1.0 and is_equal_approx(t.track_angle[i], heading)
+					&"berm":
+						ok = t.deform[i] > 0.0 and t.loose[i] == 0.0
+					&"bow", &"spray":
+						ok = t.loose[i] > 0.0 and t.deform[i] == 0.0
+					&"outside":
+						ok = t.deform[i] == 0.0 and t.loose[i] == 0.0 and t.wear[i] == 0.0 and t.track[i] == 0.0
+				if not ok:
+					wrong.append("%s at %s heading %.2f: cell %s" % [region, center, heading, Vector2i(x, y)])
+		# What did not go aside stuck to the tyre.
+		assert_float(_volume(t) + carried).is_equal_approx(0.0, 0.0001)
+	assert_array(Array(wrong)).is_empty()
+	for region in [&"foot", &"berm", &"bow", &"spray"]:
+		assert_int(seen.get(region, 0)).is_greater(0)
+
+func test_a_press_over_two_materials_gives_each_cell_its_own() -> void:
+	# Mud west of x = 128 px, pavement east: a press across the line.
+	var t := Fixture.flat(Vector2i(16, 16), TtwMaterials.PAVEMENT)
+	for y in 16:
+		for x in 8:
+			t.set_material(Vector2i(x, y), TtwMaterials.MUD)
+	var carried := TtwStamps.press(t, Vector2(128, 128), 0.0, 12.0, 4.0, 1.0, 0.0, 0.0)
+	var mud := t.cell_index(t.cell_of(Vector2(123, 128)))
+	var pavement := t.cell_index(t.cell_of(Vector2(133, 128)))
+	assert_float(t.deform[mud]).is_less(0.0)
+	assert_float(t.wear[mud]).is_equal_approx(TtwMaterials.WEAR_RATE[TtwMaterials.MUD], 0.0001)
+	assert_float(t.deform[pavement]).is_equal(0.0)
+	assert_float(t.wear[pavement]).is_equal_approx(TtwMaterials.WEAR_RATE[TtwMaterials.PAVEMENT], 0.0001)
+	assert_float(_volume(t) + carried).is_equal_approx(0.0, 0.0001)

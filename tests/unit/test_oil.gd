@@ -90,3 +90,37 @@ func test_a_wreck_bleeds_oil() -> void:
 	(world.session.system(&"drive") as TtwDriveSystem).wreck(tank)
 	await _ticks(TtwOilSystem.BLEED_EVERY * 8)
 	assert_float(t.layer_total(TtwTerrain.Layer.OIL)).is_greater(0.0)
+
+func test_smears_at_any_angle_pick_up_and_drop_only_under_them_and_keep_the_oil() -> void:
+	var wrong: PackedStringArray = []
+	for k in 24:
+		for offset in [Vector2(0.0, 0.0), Vector2(0.7, 0.3), Vector2(1.3, 1.9), Vector2(0.95, 1.05)]:
+			var t := Fixture.flat(Vector2i(6, 6), TtwMaterials.PAVEMENT)
+			t.oil.fill(1.0)
+			var center: Vector2 = Vector2(48, 48) + offset
+			var heading := k * PI / 12.0
+			var along := Vector2.from_angle(heading)
+			var side := along.orthogonal()
+			var carried := TtwOil.smear(t, center, heading, 6.0, 4.0, 2.0)
+			var changed := 0
+			for i in t.oil.size():
+				if t.oil[i] != 1.0:
+					changed += 1
+			assert_int(changed).is_greater(0)
+			# Each cell under it gave up PICKUP of its oil and got an even share
+			# of the DROP of what the tyre carried; no other cell changed.
+			var under := 1.0 - TtwOil.PICKUP + 2.0 * TtwOil.DROP / changed
+			for y in t.size_cells.y:
+				for x in t.size_cells.x:
+					var i := y * t.size_cells.x + x
+					var d := (Vector2(x, y) + Vector2(0.5, 0.5)) * t.cell_size_px - center
+					var u := absf(d.dot(along))
+					var v := absf(d.dot(side))
+					if absf(u - 3.0) < 0.2 or absf(v - 2.0) < 0.2:
+						continue
+					var expected := under if u < 3.0 and v < 2.0 else 1.0
+					if not is_equal_approx(t.oil[i], expected):
+						wrong.append("at %s heading %.2f: cell %s has %f" % [center, heading, Vector2i(x, y), t.oil[i]])
+			assert_float(carried).is_equal_approx(2.0 - 2.0 * TtwOil.DROP + changed * TtwOil.PICKUP, 0.0001)
+			assert_float(t.layer_total(TtwTerrain.Layer.OIL) + carried).is_equal_approx(t.oil.size() + 2.0, 0.001)
+	assert_array(Array(wrong)).is_empty()
