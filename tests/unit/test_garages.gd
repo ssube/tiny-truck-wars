@@ -55,6 +55,17 @@ func test_a_kit_with_its_own_art_is_drawn_with_it() -> void:
 	assert_str((world.session.body_of(tanker) as TtwVehicle2D).art).is_equal("tanker")
 	var engineer := world.spawn(&"engineer", Vector2(400, 200))
 	assert_str((world.session.body_of(engineer) as TtwVehicle2D).art).is_equal("truck")
+	# Its beacon flashes; the tanker has none; a wreck's goes dark. (Each
+	# body's frame update is called here: a physics tick ends before the
+	# frame's _process runs.)
+	var tanker_body := world.session.body_of(tanker) as TtwVehicle2D
+	body._process(0.0)
+	tanker_body._process(0.0)
+	assert_float(body.sprite.material.get_shader_parameter("beacon")).is_equal(1.0)
+	assert_float(tanker_body.sprite.material.get_shader_parameter("beacon")).is_equal(0.0)
+	wrecker.add_component(TtwWrecked.new())
+	body._process(0.0)
+	assert_float(body.sprite.material.get_shader_parameter("beacon")).is_equal(0.0)
 	# Changed after it is drawn (a loaded save), the sprite follows.
 	body.art = "truck"
 	assert_str(body.sprite.texture.resource_path).is_equal("res://assets/units/truck/east.png")

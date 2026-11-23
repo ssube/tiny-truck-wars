@@ -7,6 +7,9 @@ class_name TtwVehicle2D extends Node2D
 const DIRECTIONS := ["east", "south-east", "south", "south-west", "west", "north-west", "north", "north-east"]
 const SHADER := preload("res://shaders/vehicle.gdshader")
 const REFLECTION_SHADER := preload("res://shaders/reflection.gdshader")
+const BEACON_GLOW := preload("res://shaders/beacon_glow.gdshader")
+## The beacon's light on the ground, world px across (an ellipse, tilted).
+const BEACON_LIGHT_PX := Vector2(76, 54)
 ## How far up the screen a px of height is drawn (the terrain shader's tilt).
 const TILT_K := 0.6
 
@@ -22,6 +25,9 @@ const TILT_K := 0.6
 			var facing := _facing
 			_facing = -1
 			_face(maxi(facing, 0))
+## Whether its sprite has a beacon that flashes (vehicle.gdshader), dark
+## once it is a wreck. Set by its kind (TtwProduction).
+@export var beacon: bool = false
 @export var vehicle: TtwVehicle
 @export var drive: TtwDrive
 @export var fuel: TtwFuel
@@ -38,11 +44,16 @@ var shadow: Polygon2D
 var _shadow_size := Vector2.ZERO
 ## What the sprite's material was last given (sink, grime, in water, wet): a
 ## parameter is set only when it changes.
-var _shown := PackedFloat64Array([NAN, NAN, NAN, NAN])
-const SHOWN_NAMES: Array[StringName] = [&"sink_rows", &"grime", &"in_water", &"wet"]
+var _shown := PackedFloat64Array([NAN, NAN, NAN, NAN, NAN])
+const SHOWN_NAMES: Array[StringName] = [&"sink_rows", &"grime", &"in_water", &"wet", &"beacon"]
 var _textures: Array[Texture2D] = []
 var _bottoms: PackedFloat32Array = []
 var _heights: PackedFloat32Array = []
+## The beacon's light, on the ground effects layer under the units, carried
+## along by a RemoteTransform2D (the engine moves it, no script). Made the
+## first time the beacon is lit.
+var _glow: Sprite2D
+var _phase: float = 0.0
 var _facing: int = -1
 
 func kit_components() -> Array[Component]:
@@ -69,6 +80,9 @@ func _ready() -> void:
 	sprite.name = "Sprite"
 	var shader_material := ShaderMaterial.new()
 	shader_material.shader = SHADER
+	# Out of step with every other beacon, set once.
+	_phase = float(get_instance_id() % 997) / 997.0
+	shader_material.set_shader_parameter("beacon_phase", _phase)
 	sprite.material = shader_material
 	sprite.position = sprite_offset
 	reflection = Sprite2D.new()
@@ -125,7 +139,12 @@ func _process(_delta: float) -> void:
 		var waterline := sprite.position.y - texture_size.y * 0.5 + _bottoms[_facing] + 1.0 - sink_rows
 		reflection.position = Vector2(sprite.position.x, 2.0 * waterline - sprite.position.y)
 		reflection.material.set_shader_parameter("strength", clampf(v.water_depth / 3.0, 0.0, 1.0))
-	modulate = Color(0.55, 0.5, 0.48) if entity.has_component(TtwWrecked) else Color.WHITE
+	var wrecked := entity.has_component(TtwWrecked)
+	modulate = Color(0.55, 0.5, 0.48) if wrecked else Color.WHITE
+	var lit := beacon and not wrecked
+	_show(4, 1.0 if lit else 0.0)
+	if lit != (_glow != null and _glow.visible):
+		_light(lit)
 	# The shadow is a node, not a _draw: turning it costs a transform, where
 	# drawing it again every frame cost a call into the script per vehicle.
 	var half_length := maxf(v.tread_length_px * 0.5, absf(v.axles_px[0]) + 3.0 if not v.axles_px.is_empty() else 8.0)
@@ -136,6 +155,36 @@ func _process(_delta: float) -> void:
 	if shadow.rotation != d.heading:
 		shadow.rotation = d.heading
 	shadow.visible = true
+
+func _light(on: bool) -> void:
+	if _glow == null:
+		if not on:
+			return
+		var game := get_tree().get_first_node_in_group(&"ttw_game") as TtwGame
+		if game == null or game.fx == null or game.fx.ground == null:
+			return
+		_glow = Sprite2D.new()
+		_glow.name = "BeaconLight"
+		var image := Image.create(4, 4, false, Image.FORMAT_L8)
+		image.fill(Color.WHITE)
+		_glow.texture = ImageTexture.create_from_image(image)
+		_glow.scale = BEACON_LIGHT_PX / 4.0
+		var m := ShaderMaterial.new()
+		m.shader = BEACON_GLOW
+		m.set_shader_parameter("beacon_phase", _phase)
+		_glow.material = m
+		game.fx.ground.add_child(_glow)
+		var carry := RemoteTransform2D.new()
+		carry.update_rotation = false
+		carry.update_scale = false
+		add_child(carry)
+		carry.remote_path = carry.get_path_to(_glow)
+	_glow.visible = on
+
+func _exit_tree() -> void:
+	if is_instance_valid(_glow):
+		_glow.queue_free()
+		_glow = null
 
 func _show(index: int, value: float) -> void:
 	if _shown[index] != value:

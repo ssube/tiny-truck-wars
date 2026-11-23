@@ -14,6 +14,14 @@ uniform float in_water = 0.0;
 // A wet hull is darker and a little richer (paint soaked, most of all
 // olive and green), with rare glints on top; it dries over time.
 uniform float wet = 0.0;
+// A flashing beacon (the wrecker's): its pixels are the sprite's two beacon
+// oranges, bright while lit and dim between, on the GPU's clock, so it
+// costs no script time (beacon.gdshaderinc, shared with its ground light).
+#include "res://shaders/beacon.gdshaderinc"
+uniform float beacon = 0.0;
+uniform float beacon_phase = 0.0;
+const vec3 BEACON_DEEP = vec3(202.0, 110.0, 31.0) / 255.0;
+const vec3 BEACON_BRIGHT = vec3(247.0, 175.0, 59.0) / 255.0;
 
 float hash(vec2 p) {
 	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -24,6 +32,9 @@ void fragment() {
 	vec2 px = floor(UV / TEXTURE_PIXEL_SIZE);
 	float above = bottom_row - px.y; // rows above the sprite's bottom
 	float h = hash(px);
+	if (beacon > 0.5 && c.a > 0.5 && min(distance(c.rgb, BEACON_DEEP), distance(c.rgb, BEACON_BRIGHT)) < 0.02) {
+		c.rgb = beacon_lit(beacon_phase) ? mix(c.rgb, vec3(1.0, 0.86, 0.5), 0.65) : c.rgb * 0.45;
+	}
 	if (c.a > 0.5) {
 		// Caked mud climbs from the bottom with grime, in ragged clumps.
 		float reach = grime * body_rows * 0.55 + (h - 0.5) * 5.0;

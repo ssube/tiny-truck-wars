@@ -71,7 +71,13 @@ rule here has a test (`tests/unit/test_combat.gd`, `test_helicopters.gd`,
 
 ## Truck kits and the bucket (`TtwKitSystem`)
 
-- **Wrecker**: the winch and hitch (`docs/rts.md`).
+- **Wrecker**: the winch and hitch (`docs/rts.md`). Its amber beacon (the
+  six orange pixels on its roof, in every facing) flashes slowly, 48 times a
+  minute, and lights the ground and water around it; dark once it is a
+  wreck. Both are drawn on the GPU's clock from `shaders/beacon.gdshaderinc`
+  (the sprite in `vehicle.gdshader`, the light in `beacon_glow.gdshader` on
+  the ground effects layer, carried by a `RemoteTransform2D`), so they cost
+  no script time. Other vehicles and props are not lit by it.
 - **Tanker** (`TtwTanker`): its cargo is filled at its side's depots along
   with its own tank; every `SERVICE_TICKS` it gives `rate` a second to each
   unit of its side within `reach_tiles`, ground ones and aircraft on the

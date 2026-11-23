@@ -3,6 +3,7 @@ extends GdUnitTestSuite
 ## and collapse the way they should.
 
 const Simulation := preload("res://tests/support/simulation.gd")
+const UI := preload("res://tests/support/ui.gd")
 
 var game: TtwGame
 
@@ -139,3 +140,42 @@ func test_a_tree_picks_its_picture_by_its_spot() -> void:
 		var used := tree.art.get_image().get_used_rect()
 		assert_float(sprite.position.y + used.end.y - 1).is_equal(1.0)
 	assert_int(seen.size()).is_greater(1)
+
+## A wrecker's beacon lights the ground and water around it: a light on the
+## ground effects layer (under the units, over the terrain and its water),
+## flashing with the beacon (the same phase), carried along as it moves,
+## and dark once it is a wreck.
+func test_a_wreckers_beacon_lights_the_ground_around_it() -> void:
+	var at := Vector2(300, 400)
+	var wrecker := game.spawn_unit(&"wrecker", at, 0.0, 1)
+	var tanker := game.spawn_unit(&"tanker", at + Vector2(80, 0), 0.0, 1)
+	# Each body's frame update, called here: a physics tick ends before the
+	# frame's _process runs.
+	var body := game.session.body_of(wrecker) as TtwVehicle2D
+	var tanker_body := game.session.body_of(tanker) as TtwVehicle2D
+	body._process(0.0)
+	tanker_body._process(0.0)
+	var light := body.get("_glow") as Sprite2D
+	assert_object(light).is_not_null()
+	assert_object(light.get_parent()).is_same(game.fx.ground)
+	assert_bool(light.visible).is_true()
+	assert_float(light.material.get_shader_parameter("beacon_phase")).is_equal(body.sprite.material.get_shader_parameter("beacon_phase"))
+	assert_object(tanker_body.get("_glow")).is_null()
+	# The engine carries it along as the wrecker moves: a RemoteTransform2D
+	# on the wrecker drives it (position only, no script each frame).
+	var carriers := body.get_children().filter(func(n): return n is RemoteTransform2D)
+	assert_int(carriers.size()).is_equal(1)
+	var carry: RemoteTransform2D = carriers[0]
+	assert_object(carry.get_node(carry.remote_path)).is_same(light)
+	assert_bool(carry.update_position).is_true()
+	assert_bool(carry.update_rotation).is_false()
+	assert_bool(carry.update_scale).is_false()
+	wrecker.add_component(TtwWrecked.new())
+	body._process(0.0)
+	assert_bool(light.visible).is_false()
+	# Gone with the wrecker, as its body leaves the tree.
+	var gone := UI.observe(body.tree_exited)
+	game.session.retire(wrecker)
+	var left: Dictionary = await gone.wait(get_tree(), 1.0)
+	assert_bool(left.received).is_true()
+	assert_bool(not is_instance_valid(light) or light.is_queued_for_deletion()).is_true()

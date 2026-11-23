@@ -43,6 +43,8 @@ func _run() -> void:
 		game.spawn_unit(&"tank", field + Vector2(-70, k * 26 - 26), 0.0, 1)
 		game.spawn_unit(&"tank", field + Vector2(70, k * 26 - 26), PI, 2)
 	game.spawn_unit(&"nurse", field + Vector2(-100, 0), 0.0, 1)
+	# A wrecker behind the line, its beacon flashing and lighting the ground.
+	game.spawn_unit(&"wrecker", field + Vector2(-120, 40), 0.0, 1)
 	var gunship := game.spawn_unit(&"gunship", field + Vector2(-40, -70), 0.0, 1)
 	(gunship.get_component(TtwFlight) as TtwFlight).altitude = 26.0
 	game.camera.position = field

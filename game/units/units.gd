@@ -52,6 +52,8 @@ static func dress(body: Node, kind: StringName) -> void:
 	var art := TtwProduction.art(kind)
 	if not art.is_empty() and "art" in body:
 		body.set("art", art)
+	if TtwProduction.beacon(kind) and "beacon" in body:
+		body.set("beacon", true)
 
 ## The kind a unit was built as (TtwUnit), or its chassis.
 static func kind_of(entity: Entity) -> StringName:
