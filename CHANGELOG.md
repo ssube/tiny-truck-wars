@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.5
+
+- New art: the wrecker and the fuel tanker each have a truck of their own,
+  and the farmhouses, trees, sheds and rubble are drawn properly now. The
+  river map has two small farms, one by each ford.
+- The wrecker's amber beacon flashes slowly and lights the ground and water
+  around it. It goes dark when the wrecker is wrecked.
+- Rubble is drawn at its real size instead of squashed to fit.
+
 ## 0.2.4
 
 - Fixed: water was drawn much too dark (0.2.2 and 0.2.3). The river is back
