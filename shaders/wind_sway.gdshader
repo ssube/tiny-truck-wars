@@ -1,9 +1,10 @@
 shader_type canvas_item;
 // Leans the upper part of a picture with the map's wind, in whole texels so
-// pixel art stays crisp: trees. TtwWeatherSystem sets ttw_wind (the steady
-// wind, px/s) and ttw_wind_clock (game seconds) every tick; the gust below
-// repeats TtwWeatherSystem.gust, so trees bend together and a gust rolls
-// across a wood. A 20 px/s wind leans a picture `lean_pixels`.
+// pixel art stays crisp: trees. Each texel row moves as one, by whole
+// texels, however far the picture is zoomed in. TtwWeatherSystem sets
+// ttw_wind (the steady wind, px/s) and ttw_wind_clock (game seconds) every
+// tick; the gust below repeats TtwWeatherSystem.gust, so trees bend
+// together and a gust rolls across a wood. A 20 px/s wind leans a picture `lean_pixels`.
 //
 // The lean grows from nothing at `rest_v` (texture v, 1 = the bottom row) to
 // `lean_pixels` per unit of wind at `full_v` and above. For an atlas frame in a
@@ -43,7 +44,11 @@ void vertex() {
 }
 
 void fragment() {
-	float reach = clamp((rest_v - UV.y) / max(rest_v - full_v, 0.0001), 0.0, 1.0);
+	// One lean per texel row, from the row's centre: a texel row covers
+	// several screen rows when zoomed in, and leaning each of them on its own
+	// split the row into screen-pixel steps.
+	float row_v = (floor(UV.y / TEXTURE_PIXEL_SIZE.y) + 0.5) * TEXTURE_PIXEL_SIZE.y;
+	float reach = clamp((rest_v - row_v) / max(rest_v - full_v, 0.0001), 0.0, 1.0);
 	// Bends more near the top, like a stem: quadratic, not a straight shear.
 	float lean = (ttw_wind.x / 20.0) * gust(ttw_wind_clock, phase) * lean_pixels * reach * reach;
 	vec2 uv = UV;
